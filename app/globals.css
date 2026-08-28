@@ -561,6 +561,13 @@
   .audience-main-hero h1{max-width:100%;font-size:clamp(2rem,4.8vw,2.7rem)}
   .audience-main-hero .hero-device{display:grid;margin:0}
   .audience-main-hero .ipad-product-frame{width:min(235px,31vw);transform:rotate(1.5deg)}
+  .audience-grid{gap:14px}
+  .audience-card{display:flex;min-height:230px;flex-direction:column;align-items:center;gap:12px;padding:22px;border-radius:22px;text-align:center}
+  .audience-card-icon{width:62px;height:62px;flex:0 0 62px;margin:0;border-radius:19px;font-size:1.45rem}
+  .audience-card>div{width:100%;min-height:122px;display:flex;flex:1;flex-direction:column;align-items:center}
+  .audience-card small{padding:4px 9px;font-size:.69rem}
+  .audience-card h2{min-height:2.56em;display:flex;align-items:center;justify-content:center;margin:7px 0 10px;font-size:1.45rem;line-height:1.28;text-wrap:balance}
+  .audience-card b{width:min(100%,220px);justify-content:center;justify-self:auto;margin-top:auto;padding:10px 13px;border-radius:11px;font-size:.84rem}
   .teacher-selection-top{grid-template-columns:1fr}.teacher-selection-top .public-ipad-counter{grid-row:1}.teacher-selection-top .survey-product-heading{grid-row:2}
 }
 
