@@ -1,0 +1,3 @@
+export const ADMIN_IDLE_SECONDS = 30 * 60;
+export const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_SECONDS * 1_000;
+export const ADMIN_SESSION_HEARTBEAT_MS = 5 * 60 * 1_000;

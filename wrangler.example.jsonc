@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ipad",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "binding": "ASSETS", "directory": "dist/client" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ipad",
+      "database_id": "ใส่-D1-database-id-ของคุณ",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "ตั้งชื่อ-R2-bucket-ของคุณ" }
+  ],
+  "vars": {
+    "ADMIN_INITIAL_DISPLAY_NAME": "ผู้ดูแลระบบ"
+  }
+}

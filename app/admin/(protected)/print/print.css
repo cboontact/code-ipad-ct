@@ -1,0 +1,47 @@
+@font-face{font-family:"TH Sarabun New";src:url("/fonts/THSarabunNew.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"TH Sarabun New";src:url("/fonts/THSarabunNew-Bold.ttf") format("truetype");font-style:normal;font-weight:700 900;font-display:swap}
+
+.print-stage{background:#e8edf1;margin:-28px;padding:28px;min-height:100vh}
+.admin-shell:has(.print-embed){display:block;min-height:0}
+.admin-shell:has(.print-embed) .admin-sidebar{display:none}
+.admin-shell:has(.print-embed) .admin-content{padding:0}
+.print-stage.print-embed{margin:0;padding:20px;min-height:100vh}
+.print-embed .print-toolbar{display:none}
+.print-toolbar{max-width:216mm;margin:0 auto 18px;background:#fff;border-radius:14px;padding:12px 15px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 20px rgba(20,48,70,.12)}
+.print-toolbar div{display:flex;flex-direction:column}.print-toolbar small{color:#64748b}
+
+.awat-page{position:relative;width:216mm;min-height:279mm;margin:0 auto 24px;background:#fff;color:#000;padding:11mm 18mm 14mm 32mm;font-family:"TH Sarabun New","Sarabun New",sans-serif;font-size:20px;line-height:1.22;box-shadow:0 10px 28px rgba(21,50,72,.15);page-break-after:always}
+.awat-page:last-child{page-break-after:auto}
+.awat-top{position:absolute;top:7mm;left:32mm;right:18mm;height:22mm;display:flex;justify-content:center;align-items:flex-start}
+.awat-obec{width:22mm;height:22mm;object-fit:contain}
+.awat-code{position:absolute;top:9mm;right:0;font-family:"TH Sarabun New","Sarabun New",sans-serif;font-size:18px;font-weight:700}
+.awat-page header{text-align:center;margin:21mm 0 9mm}
+.awat-page header h1,.awat-page header h2{font-size:22px;line-height:1.08;margin:0;font-weight:700}
+.awat-number{margin:0 0 8mm}
+
+.awat-line{display:inline-block;min-width:27mm;min-height:5.2mm;border-bottom:1px solid #222;text-align:center;padding:0 1mm;line-height:1.05;vertical-align:bottom;white-space:nowrap;overflow:hidden}
+.awat-line.short{min-width:22mm}.awat-line.school{min-width:51mm}.awat-line.organization{min-width:68mm}.awat-line.brand,.awat-line.model{min-width:32mm}.awat-line.serial{min-width:36mm}.awat-line.borrower{min-width:95mm}.awat-line.position{min-width:36mm}.awat-line.teacher-code{min-width:42mm}.awat-line.house{min-width:24mm}.awat-line.small{min-width:18mm}.awat-line.postal{min-width:24mm}.awat-line.phone{min-width:57mm}.awat-line.date{min-width:12mm}.awat-line.month{min-width:22mm}.awat-line.year{min-width:14mm}
+.awat-info{display:grid;row-gap:1.4mm}
+.awat-info>div{min-height:6.3mm;white-space:nowrap}
+
+.awat-list{list-style:none;padding-left:0;margin:1.5mm 0 0}
+.awat-list li{display:grid;grid-template-columns:6mm minmax(0,1fr);padding-left:0;margin:1.4mm 0;text-align:left}
+.awat-item-number{display:block;text-align:left}
+.awat-item-body>div{margin:.7mm 0}
+.citizen-row{display:flex!important;align-items:center;gap:5mm}
+.digit-boxes{display:flex}
+.digit-boxes i{width:6.6mm;height:7.5mm;border:1px solid #111;border-right:0;display:grid;place-items:center;font-style:normal;font-size:17px;font-weight:700;line-height:1}
+.digit-boxes i:last-child{border-right:1px solid #111}
+
+.signature-stack{margin:3mm 0 0 auto;width:78mm;display:grid;gap:5mm}
+.signature{text-align:center;line-height:1.1}
+.signature>div{margin:1mm 0}
+.signature .awat-line{min-height:4.8mm}
+.awat-line.signature-line{min-width:52mm}
+.signature span{display:inline-block;min-width:53mm;min-height:5mm}
+.awat-line.signature-date,.awat-line.signature-year{width:12mm;min-width:12mm}
+.awat-line.student-grade{min-width:24mm}.awat-line.student-room{min-width:24mm}.awat-line.student-code{min-width:48mm}
+.awat-line.student-phone{min-width:40mm}.awat-line.guardian-phone{min-width:40mm}
+.student-signatures{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:6mm;row-gap:5mm;margin-top:4mm}
+@page{size:Letter portrait;margin:0}
+@media print{html,body{background:#fff!important}.print-stage{margin:0!important;padding:0!important;background:#fff!important}.awat-page{margin:0!important;box-shadow:none!important;width:216mm;height:279mm;min-height:279mm;overflow:hidden}.admin-shell{display:block!important}.admin-content{padding:0!important}.site-header,.admin-sidebar,.print-toolbar{display:none!important}}

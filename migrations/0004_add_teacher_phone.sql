@@ -1,0 +1,1 @@
+ALTER TABLE teachers ADD COLUMN phone TEXT;
