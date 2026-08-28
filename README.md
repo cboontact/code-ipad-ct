@@ -879,106 +879,263 @@ npm run dev
 
 หยุดเซิร์ฟเวอร์ด้วย `Ctrl + C`
 
-#### Windows 10/11 แบบทำตามทีละขั้น
+#### Windows 10/11: เริ่มจากเครื่องเปล่าจนเปิดเว็บได้
 
-ขั้นตอนนี้ใช้ PowerShell และเหมาะสำหรับโรงเรียนที่ต้องการทดลองระบบบนคอม Windows ก่อนเปิด Cloudflare จริง
+หัวข้อนี้เป็นเส้นทางแบบจบในตัวสำหรับโรงเรียนที่ต้องการ **จำลองระบบในเครื่อง Windows ก่อน** ยังไม่ต้องมีบัญชี Cloudflare และยังไม่กระทบฐานข้อมูลจริง ให้ทำตามลำดับโดยอย่าข้ามขั้น
 
-1. ติดตั้งโปรแกรมต่อไปนี้ แล้วปิด–เปิด PowerShell ใหม่หลังติดตั้ง:
+**สิ่งที่จะได้เมื่อทำครบ:** เปิดหน้าเว็บที่ `http://localhost:3000` เข้าหน้าแอดมินได้ และมีฐานข้อมูล D1/R2 จำลองอยู่เฉพาะในคอมเครื่องนั้น
 
-   - [Git for Windows](https://git-scm.com/download/win)
-   - [Node.js](https://nodejs.org/) รุ่น LTS เวอร์ชัน `22.13.0` ขึ้นไป
-   - [Visual Studio Code](https://code.visualstudio.com/) หรือโปรแกรมแก้ไขข้อความอื่น
-   - Microsoft Edge หรือ Google Chrome
+##### ขั้นที่ 1 — ติดตั้งโปรแกรมที่จำเป็น
 
-2. เปิด **Windows PowerShell** แบบผู้ใช้ปกติ ไม่จำเป็นต้อง Run as administrator แล้วตรวจเวอร์ชัน:
+ดาวน์โหลดและติดตั้งตามลำดับ:
 
-   ```powershell
-   git --version
-   node --version
-   npm.cmd --version
-   ```
+1. [Git for Windows](https://git-scm.com/download/win) — ใช้ค่าติดตั้งมาตรฐานได้ทั้งหมด
+2. [Node.js](https://nodejs.org/) — เลือกรุ่น **LTS** เวอร์ชัน `22.13.0` ขึ้นไป
+3. [Visual Studio Code](https://code.visualstudio.com/) — ใช้เปิดและแก้ไฟล์ตั้งค่า
+4. Microsoft Edge หรือ Google Chrome — ใช้เปิดเว็บจำลอง
 
-3. สร้างโฟลเดอร์โครงการ ดาวน์โหลดโค้ด และติดตั้ง dependencies:
+ติดตั้งครบแล้ว **ปิด PowerShell ทุกหน้าต่างและเปิดใหม่** เพื่อให้ Windows โหลด PATH ใหม่
 
-   ```powershell
-   New-Item -ItemType Directory -Path C:\webapps -Force
-   Set-Location C:\webapps
-   git clone https://github.com/cboontact/code-ipad-ct.git
-   Set-Location .\code-ipad-ct
-   npm.cmd install
-   ```
+##### ขั้นที่ 2 — ตรวจว่าโปรแกรมพร้อมใช้งาน
 
-   หากดาวน์โหลดโค้ดเป็น ZIP ให้แตกไฟล์ไปที่ `C:\webapps\code-ipad-ct` จากนั้นเปิด PowerShell ในโฟลเดอร์นั้นและรัน `npm.cmd install`
+กดปุ่ม Start พิมพ์ `PowerShell` แล้วเปิด **Windows PowerShell** แบบผู้ใช้ปกติ ไม่ต้อง Run as administrator จากนั้นรันทีละบรรทัด:
 
-4. สร้างไฟล์ตั้งค่าสำหรับเครื่อง Windows:
+```powershell
+git --version
+node --version
+npm.cmd --version
+```
 
-   ```powershell
-   Copy-Item wrangler.example.jsonc wrangler.jsonc
-   Copy-Item .dev.vars.example .dev.vars
-   notepad .dev.vars
-   ```
+ผลที่ต้องเห็น:
 
-   วาง `SESSION_SECRET` และ `PII_ENCRYPTION_KEY` ที่สร้างจาก PowerShell ตามหัวข้อ 19.6 แล้วบันทึกไฟล์เป็น UTF-8 ห้ามใช้ค่าตัวอย่างเดิมกับข้อมูลจริง
+- `git --version` แสดงเลขรุ่น Git
+- `node --version` แสดง `v22.13.0` หรือสูงกว่า
+- `npm.cmd --version` แสดงเลขรุ่น npm โดยไม่มีข้อความ error
 
-5. เปิด `wrangler.jsonc` แล้วตั้งชื่อ local ให้ครบ แม้ยังไม่ได้สร้าง Cloudflare:
+ถ้าคำสั่งใดขึ้นว่าไม่พบ ให้หยุดตรงนี้ ติดตั้งโปรแกรมส่วนนั้นใหม่ แล้วปิด–เปิด PowerShell ก่อนตรวจซ้ำ
 
-   ```jsonc
-   "name": "ipad-school-demo",
-   "database_name": "ipad-school-demo",
-   "database_id": "local-ipad-school-demo",
-   "bucket_name": "ipad-school-demo-documents"
-   ```
+##### ขั้นที่ 3 — ดาวน์โหลดโครงการจาก GitHub
 
-   คงชื่อ binding เป็น `DB`, `FILES` และ `ASSETS` ตามไฟล์ตัวอย่าง หากสร้าง D1 จริงภายหลังจึงเปลี่ยน `database_id` เป็น ID ที่ Cloudflare ออกให้
+คัดลอกคำสั่งชุดนี้ลง PowerShell:
 
-6. สร้างฐานข้อมูลจำลองและข้อมูลตั้งต้น:
+```powershell
+New-Item -ItemType Directory -Path C:\webapps -Force
+Set-Location C:\webapps
+git clone https://github.com/cboontact/code-ipad-ct.git
+Set-Location C:\webapps\code-ipad-ct
+Get-ChildItem
+```
 
-   ```powershell
-   npm.cmd run db:migrate:local
-   npm.cmd run db:seed:local
-   ```
+ผลที่ต้องเห็น: มีไฟล์ `package.json`, `README.md`, `wrangler.example.jsonc` และโฟลเดอร์ `app`
 
-   คำสั่งที่ลงท้าย `:local` จะไม่แก้ฐานข้อมูลบน Cloudflare
+ถ้าองค์กรไม่อนุญาต Git ให้เปิดหน้า GitHub เลือก **Code → Download ZIP** แล้วทำดังนี้:
 
-7. เปิดเว็บจำลอง:
+1. แตก ZIP ไปที่ `C:\webapps`
+2. เปลี่ยนชื่อโฟลเดอร์ที่แตกแล้วเป็น `code-ipad-ct`
+3. เปิด PowerShell แล้วรัน `Set-Location C:\webapps\code-ipad-ct`
 
-   ```powershell
-   npm.cmd run dev
-   ```
+> ไม่แนะนำให้วางโครงการใน Desktop, Documents, OneDrive หรือ Google Drive เพราะระบบซิงก์อาจล็อกไฟล์และทำให้ build ช้า
 
-   เมื่อเห็น `Local: http://localhost:3000/` ให้เปิด:
+##### ขั้นที่ 4 — ติดตั้งไลบรารีของโครงการ
 
-   - หน้าเว็บ `http://localhost:3000`
-   - หน้าผู้ดูแล `http://localhost:3000/admin/login`
+ตรวจว่าบรรทัด PowerShell ขึ้นต้นด้วย `PS C:\webapps\code-ipad-ct>` แล้วรัน:
 
-   เข้าครั้งแรกด้วยบัญชีจาก `.dev.vars` หากยังใช้ค่าตัวอย่างคือ `admin` / `admin123456` ให้ใช้เฉพาะข้อมูลจำลองและเปลี่ยนบัญชีก่อนใช้จริง
+```powershell
+npm.cmd install
+```
 
-8. ทดลอง workflow ให้ครบก่อนเผยแพร่:
+รอจนคำสั่งทำงานเสร็จและกลับมาแสดง `PS C:\webapps\code-ipad-ct>` อีกครั้ง ห้ามปิดหน้าต่างระหว่างดาวน์โหลด
 
-   - เข้าหน้าแรกและหน้าประชาสัมพันธ์
-   - เข้าสู่ระบบผู้ดูแล
-   - เปลี่ยนข้อมูลโรงเรียนและโลโก้
-   - เพิ่มครูและนักเรียนตัวอย่าง
-   - ทดลองลงทะเบียน อนุมัติ พิมพ์ AWAT-03 และคืนเครื่อง
-   - ปิดโปรแกรมด้วย `Ctrl + C`
+ผลที่ต้องเห็น: มีโฟลเดอร์ `node_modules` และไม่มีบรรทัด error สีแดงที่ทำให้คำสั่งหยุด
 
-9. ตรวจ production build บน Windows:
+##### ขั้นที่ 5 — สร้างไฟล์ตั้งค่าของเครื่องนี้
 
-   ```powershell
-   npm.cmd run build
-   npm.cmd run start
-   ```
+รัน:
 
-   `npm.cmd run build` ต้องจบด้วย `Build complete` ส่วน `npm.cmd run start` ใช้ตรวจ Worker build ที่สร้างแล้ว กด `Ctrl + C` เพื่อหยุด
+```powershell
+Copy-Item wrangler.example.jsonc wrangler.jsonc
+Copy-Item .dev.vars.example .dev.vars
+```
 
-10. หากต้องการเปิดให้โทรศัพท์หรือคอมเครื่องอื่นในวง LAN ทดสอบชั่วคราว:
+ตรวจว่าไฟล์ถูกสร้างแล้ว:
 
-    ```powershell
-    npm.cmd run dev -- --host 0.0.0.0
-    ipconfig
-    ```
+```powershell
+Get-Item wrangler.jsonc
+Get-Item .dev.vars
+```
 
-    ดูค่า `IPv4 Address` ของเครื่อง Windows แล้วเปิด `http://หมายเลข-IP:3000` จากอุปกรณ์ที่อยู่ Wi-Fi เดียวกัน หาก Windows Firewall ถาม ให้อนุญาตเฉพาะ **Private networks** และใช้เฉพาะวงเครือข่ายที่เชื่อถือได้ ห้ามทำ port forwarding เปิด dev server ออกอินเทอร์เน็ต
+ไฟล์สองตัวนี้ใช้เฉพาะเครื่องนี้และถูก `.gitignore` ไว้แล้ว ห้ามส่งขึ้น GitHub
+
+##### ขั้นที่ 6 — สร้างรหัสลับสำหรับข้อมูลจำลอง
+
+คัดลอกคำสั่งทั้งหมดต่อไปนี้ลง PowerShell แล้วกด Enter:
+
+```powershell
+function New-RandomBase64Secret {
+  $bytes = New-Object byte[] 32
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($bytes)
+    [Convert]::ToBase64String($bytes)
+  }
+  finally {
+    $rng.Dispose()
+  }
+}
+
+$sessionSecret = New-RandomBase64Secret
+$piiEncryptionKey = New-RandomBase64Secret
+Write-Host "SESSION_SECRET=$sessionSecret"
+Write-Host "PII_ENCRYPTION_KEY=$piiEncryptionKey"
+```
+
+ผลที่ต้องเห็น: PowerShell แสดงสองบรรทัดที่ขึ้นต้นด้วย `SESSION_SECRET=` และ `PII_ENCRYPTION_KEY=` ให้เปิด Notepad:
+
+```powershell
+notepad .dev.vars
+```
+
+ลบข้อมูลเดิมในไฟล์แล้วใส่รูปแบบนี้ โดยนำค่าที่ PowerShell สร้างมาแทนข้อความหลังเครื่องหมาย `=` สองบรรทัดแรก:
+
+```dotenv
+SESSION_SECRET=วางค่าที่ PowerShell สร้างให้บรรทัดแรก
+PII_ENCRYPTION_KEY=วางค่าที่ PowerShell สร้างให้บรรทัดที่สอง
+ADMIN_INITIAL_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=admin123456
+ADMIN_INITIAL_DISPLAY_NAME=ผู้ดูแลระบบ
+```
+
+เลือก **File → Save** แล้วปิด Notepad ห้ามใส่เครื่องหมายคำพูดครอบค่า secret และห้ามมีช่องว่างหน้า–หลังเครื่องหมาย `=`
+
+##### ขั้นที่ 7 — ตั้งชื่อฐานข้อมูลและที่เก็บไฟล์จำลอง
+
+เปิดไฟล์ด้วย Notepad:
+
+```powershell
+notepad wrangler.jsonc
+```
+
+สำหรับการทดสอบในเครื่อง ให้แทนที่เนื้อหาในไฟล์ทั้งหมดด้วยข้อความนี้:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ipad-school-demo",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "binding": "ASSETS", "directory": "dist/client" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ipad-school-demo",
+      "database_id": "local-ipad-school-demo",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "ipad-school-demo-documents" }
+  ],
+  "vars": {
+    "ADMIN_INITIAL_DISPLAY_NAME": "ผู้ดูแลระบบ"
+  }
+}
+```
+
+เลือก **File → Save** แล้วปิด Notepad อย่าเปลี่ยน `DB`, `FILES` หรือ `ASSETS` เพราะเป็นชื่อที่โค้ดใช้เชื่อมต่อ
+
+##### ขั้นที่ 8 — สร้างตารางฐานข้อมูลจำลอง
+
+กลับมาที่ PowerShell แล้วรันคำสั่งแรก รอให้เสร็จก่อนจึงรันคำสั่งที่สอง:
+
+```powershell
+npm.cmd run db:migrate:local
+npm.cmd run db:seed:local
+```
+
+ผลที่ต้องเห็น:
+
+- migrate แสดงว่าประยุกต์ migration สำเร็จ
+- seed จบโดยไม่มีข้อความ SQL error
+- มีโฟลเดอร์ `.wrangler` ซึ่งเก็บฐานข้อมูลจำลองของเครื่องนี้
+
+คำสั่งที่มี `--local` หรือชื่อลงท้าย `:local` จะไม่แตะฐานข้อมูล Cloudflare จริง
+
+##### ขั้นที่ 9 — เปิดเว็บจำลอง
+
+รัน:
+
+```powershell
+npm.cmd run dev
+```
+
+รอจนเห็น URL ลักษณะ `http://localhost:3000` แล้ว **อย่าปิด PowerShell หน้าต่างนี้** เพราะหน้าต่างนี้คือเซิร์ฟเวอร์ของเว็บ
+
+เปิด Edge หรือ Chrome แล้วเข้า:
+
+- หน้าแรก: [http://localhost:3000](http://localhost:3000)
+- หน้าแอดมิน: [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
+
+ใช้บัญชีทดสอบ:
+
+```text
+ชื่อผู้ใช้: admin
+รหัสผ่าน: admin123456
+```
+
+หากเปิดทั้งสองหน้าได้และเข้าสู่ระบบได้ ถือว่าการจำลองขั้นพื้นฐานสำเร็จ
+
+##### ขั้นที่ 10 — ทดลองระบบก่อนส่งให้ผู้ใช้
+
+ทำรายการตามลำดับนี้อย่างน้อยหนึ่งรอบ:
+
+1. เข้าเมนู **ตั้งค่า** แล้วเปลี่ยนชื่อโรงเรียนและโลโก้เป็นข้อมูลทดสอบ
+2. เพิ่มครูหนึ่งคนและนักเรียนหนึ่งคน
+3. เปิดหน้าลงทะเบียนและค้นหารายชื่อที่เพิ่ม
+4. ลงทะเบียนรับ iPad
+5. กลับหน้าแอดมินแล้วทดลองอนุมัติ
+6. ทดลองพิมพ์ AWAT-03
+7. ทดลองเมนูคืน iPad
+8. เปิดหน้าประชาสัมพันธ์และทดลองอัปโหลดรูปทดสอบ
+
+ข้อมูลทั้งหมดในขั้นนี้อยู่ในเครื่อง Windows เท่านั้น เมื่อใช้ข้อมูลจริงต้องสร้างบัญชีผู้ดูแลใหม่และลบบัญชี `admin` เริ่มต้น
+
+##### ขั้นที่ 11 — ปิดระบบและเปิดใหม่ครั้งถัดไป
+
+ปิดเว็บจำลองโดยคลิก PowerShell ที่กำลังรัน server แล้วกด `Ctrl + C` หนึ่งครั้ง
+
+วันถัดไปไม่ต้องติดตั้งหรือสร้างฐานข้อมูลใหม่ ให้เปิด PowerShell แล้วรันเพียง:
+
+```powershell
+Set-Location C:\webapps\code-ipad-ct
+npm.cmd run dev
+```
+
+ข้อมูลทดสอบเดิมจะยังอยู่ใน `.wrangler` และเปิดเว็บได้ที่ `http://localhost:3000`
+
+##### ขั้นที่ 12 — ตรวจว่าโค้ดพร้อมสร้าง production build
+
+หยุด dev server ด้วย `Ctrl + C` ก่อน แล้วรัน:
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+```
+
+ผลที่ต้องเห็น: lint ไม่มี error และ build จบด้วยข้อความ `Build complete` หากสองคำสั่งผ่านจึงค่อยไปหัวข้อ 19.8 เพื่อสร้าง Cloudflare จริง
+
+##### ขั้นเสริม — เปิดให้โทรศัพท์หรือคอมใน Wi-Fi เดียวกันทดลอง
+
+รัน:
+
+```powershell
+npm.cmd run dev -- --host 0.0.0.0
+ipconfig
+```
+
+หา `IPv4 Address` เช่น `192.168.1.25` แล้วเปิด `http://192.168.1.25:3000` จากอุปกรณ์ที่อยู่ Wi-Fi เดียวกัน หาก Windows Firewall ถาม ให้อนุญาตเฉพาะ **Private networks**
+
+การเปิดแบบนี้ใช้ทดสอบในเครือข่ายที่เชื่อถือได้เท่านั้น ห้ามทำ port forwarding และห้ามเปิด dev server ออกอินเทอร์เน็ต
 
 #### ปัญหาที่พบบ่อยบน Windows
 
