@@ -13,7 +13,7 @@ config.autoAddCss = false;
 export async function generateMetadata():Promise<Metadata>{
   const requestHeaders=await headers(),host=requestHeaders.get("x-forwarded-host")??requestHeaders.get("host")??"localhost:3000",protocol=requestHeaders.get("x-forwarded-proto")??(host.startsWith("localhost")?"http":"https"),origin=`${protocol}://${host}`;
   const title="ระบบลงทะเบียนรับ iPad ยืมเรียนฟรี สำหรับครูและนักเรียนโรงเรียนจอมทอง",description="ระบบลงทะเบียนรับ iPad ยืมเรียนฟรี ภายใต้โครงการ Anywhere Anytime โรงเรียนจอมทอง";
-  const socialImage=`${origin}/og-registration-2026-v3.png`;
+  const socialImage=`${origin}/og-registration-2026-v2.png`;
   return {title:{default:title,template:"%s | โรงเรียนจอมทอง"},description,icons:{icon:"/api/public/logo",shortcut:"/api/public/logo"},openGraph:{url:origin,siteName:"ระบบลงทะเบียนรับ iPad ยืมเรียน",title,description,type:"website",locale:"th_TH",images:[{url:socialImage,width:1200,height:630,alt:title}]},twitter:{card:"summary_large_image",title,description,images:[socialImage]}};
 }
 
