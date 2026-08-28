@@ -579,7 +579,7 @@ wrangler.example.jsonc  ตัวอย่าง Worker, D1, R2 และ assets
 
 ส่วนนี้อยู่ช่วงท้ายของคู่มือเพื่อให้ผู้อ่านทำความเข้าใจระบบและเตรียมข้อมูลก่อนเริ่มติดตั้ง เนื้อหาครอบคลุมทั้งการเปิดระบบในเครื่อง การสร้างทรัพยากร Cloudflare และการเผยแพร่ระบบจริง
 
-> คำสั่งทุกชุดในส่วนนี้ให้พิมพ์ใน **Terminal** ภายในโฟลเดอร์โครงการ เว้นแต่หัวข้อนั้นจะระบุให้ทำใน Cloudflare Dashboard
+> คำสั่งทุกชุดในส่วนนี้ให้พิมพ์ใน **Terminal** (macOS/Linux) หรือ **PowerShell** (Windows) ภายในโฟลเดอร์โครงการ เว้นแต่หัวข้อนั้นจะระบุให้ทำใน Cloudflare Dashboard
 
 ### 🧭 19.1 ทำความเข้าใจก่อนเริ่ม
 
@@ -612,8 +612,8 @@ wrangler.example.jsonc  ตัวอย่าง Worker, D1, R2 และ assets
 - บัญชี Cloudflare ที่เปิดใช้งาน Workers, D1 และ R2 ได้
 - Git สำหรับดาวน์โหลดและอัปเดตโค้ด
 - Node.js `22.13.0` ขึ้นไป ซึ่งติดตั้ง npm มาด้วย
-- OpenSSL สำหรับสร้าง secret แบบสุ่ม
-- Chrome, Edge หรือ Safari สำหรับทดสอบหน้าเว็บ
+- OpenSSL สำหรับสร้าง secret แบบสุ่มบน macOS/Linux; Windows ใช้ PowerShell สร้าง secret ได้โดยไม่ต้องติดตั้ง OpenSSL
+- Chrome, Edge, Firefox หรือ Safari สำหรับทดสอบหน้าเว็บ
 - โปรแกรมแก้ไขข้อความ เช่น Visual Studio Code
 
 ข้อมูลของสถานศึกษา:
@@ -638,6 +638,17 @@ openssl version
 ```
 
 หาก `node --version` ต่ำกว่า `22.13.0` ให้ติดตั้ง Node.js รุ่น LTS ใหม่ก่อนดำเนินการต่อ
+
+บน Windows PowerShell ให้ตรวจด้วยคำสั่งนี้แทน โดยไม่ต้องมี OpenSSL:
+
+```powershell
+git --version
+node --version
+npm.cmd --version
+$PSVersionTable.PSVersion
+```
+
+แนะนำ Windows 10/11 แบบ 64-bit, PowerShell 5.1 ขึ้นไป และ Node.js รุ่น LTS ที่มีเวอร์ชันไม่น้อยกว่า `22.13.0`
 
 ### 📥 19.3 ดาวน์โหลดโค้ดและเข้าโฟลเดอร์โครงการ
 
@@ -664,7 +675,14 @@ ls
 
 ควรเห็นไฟล์ `package.json`, `wrangler.example.jsonc`, โฟลเดอร์ `app` และโฟลเดอร์ `migrations`
 
-> บน Windows PowerShell ใช้คำสั่งเดียวกันได้เกือบทั้งหมด หากไม่มีคำสั่ง `cp` ให้ใช้ `Copy-Item` ตามตัวอย่างในหัวข้อถัดไป
+บน Windows PowerShell ใช้คำสั่งนี้ตรวจแทน `pwd` และ `ls` ได้:
+
+```powershell
+Get-Location
+Get-ChildItem
+```
+
+ควรเก็บโครงการใน path สั้นที่ไม่ถูก OneDrive ซิงก์ เช่น `C:\webapps\code-ipad-ct` เพื่อลดปัญหาไฟล์ถูกล็อก path ยาว และการ build ช้า
 
 ### 🏫 19.4 ปรับระบบให้เป็นข้อมูลของโรงเรียนตนเอง
 
@@ -774,11 +792,32 @@ Copy-Item .dev.vars.example .dev.vars
 
 ### 🔐 19.6 สร้าง Secret สำหรับระบบ
 
-รันคำสั่งต่อไปนี้สองครั้งและเก็บผลลัพธ์แต่ละครั้งแยกกัน:
+macOS/Linux ให้รันคำสั่งต่อไปนี้สองครั้งและเก็บผลลัพธ์แต่ละครั้งแยกกัน:
 
 ```bash
 openssl rand -base64 32
 openssl rand -base64 32
+```
+
+Windows PowerShell ไม่ต้องติดตั้ง OpenSSL ให้คัดลอกคำสั่งชุดนี้ไปรันหนึ่งครั้ง ระบบจะแสดง secret สองค่าที่สุ่มด้วยระบบเข้ารหัสของ Windows:
+
+```powershell
+function New-RandomBase64Secret {
+  $bytes = New-Object byte[] 32
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($bytes)
+    [Convert]::ToBase64String($bytes)
+  }
+  finally {
+    $rng.Dispose()
+  }
+}
+
+$sessionSecret = New-RandomBase64Secret
+$piiEncryptionKey = New-RandomBase64Secret
+Write-Host "SESSION_SECRET=$sessionSecret"
+Write-Host "PII_ENCRYPTION_KEY=$piiEncryptionKey"
 ```
 
 - ค่าที่หนึ่งใช้เป็น `SESSION_SECRET` สำหรับลงนาม session ผู้ดูแล
@@ -805,6 +844,10 @@ ADMIN_INITIAL_DISPLAY_NAME=ผู้ดูแลระบบ
 5. ห้ามส่งไฟล์ `.dev.vars` ใน LINE, อีเมล หรือ GitHub
 
 ### 💻 19.7 เปิดระบบในเครื่องก่อนขึ้น Cloudflare
+
+การรันในเครื่องเป็นการจำลอง Cloudflare Worker, D1 และ R2 สำหรับทดสอบ ข้อมูล local จะอยู่ใต้โฟลเดอร์ `.wrangler` และไม่ใช่ข้อมูลเดียวกับ production จนกว่าจะสั่งคำสั่งที่มี `--remote`
+
+#### macOS/Linux
 
 สร้างตารางและข้อมูลตั้งต้นในฐานข้อมูล local:
 
@@ -835,6 +878,125 @@ npm run dev
 5. ออกจากระบบแล้วเข้าสู่ระบบใหม่ได้
 
 หยุดเซิร์ฟเวอร์ด้วย `Ctrl + C`
+
+#### Windows 10/11 แบบทำตามทีละขั้น
+
+ขั้นตอนนี้ใช้ PowerShell และเหมาะสำหรับโรงเรียนที่ต้องการทดลองระบบบนคอม Windows ก่อนเปิด Cloudflare จริง
+
+1. ติดตั้งโปรแกรมต่อไปนี้ แล้วปิด–เปิด PowerShell ใหม่หลังติดตั้ง:
+
+   - [Git for Windows](https://git-scm.com/download/win)
+   - [Node.js](https://nodejs.org/) รุ่น LTS เวอร์ชัน `22.13.0` ขึ้นไป
+   - [Visual Studio Code](https://code.visualstudio.com/) หรือโปรแกรมแก้ไขข้อความอื่น
+   - Microsoft Edge หรือ Google Chrome
+
+2. เปิด **Windows PowerShell** แบบผู้ใช้ปกติ ไม่จำเป็นต้อง Run as administrator แล้วตรวจเวอร์ชัน:
+
+   ```powershell
+   git --version
+   node --version
+   npm.cmd --version
+   ```
+
+3. สร้างโฟลเดอร์โครงการ ดาวน์โหลดโค้ด และติดตั้ง dependencies:
+
+   ```powershell
+   New-Item -ItemType Directory -Path C:\webapps -Force
+   Set-Location C:\webapps
+   git clone https://github.com/cboontact/code-ipad-ct.git
+   Set-Location .\code-ipad-ct
+   npm.cmd install
+   ```
+
+   หากดาวน์โหลดโค้ดเป็น ZIP ให้แตกไฟล์ไปที่ `C:\webapps\code-ipad-ct` จากนั้นเปิด PowerShell ในโฟลเดอร์นั้นและรัน `npm.cmd install`
+
+4. สร้างไฟล์ตั้งค่าสำหรับเครื่อง Windows:
+
+   ```powershell
+   Copy-Item wrangler.example.jsonc wrangler.jsonc
+   Copy-Item .dev.vars.example .dev.vars
+   notepad .dev.vars
+   ```
+
+   วาง `SESSION_SECRET` และ `PII_ENCRYPTION_KEY` ที่สร้างจาก PowerShell ตามหัวข้อ 19.6 แล้วบันทึกไฟล์เป็น UTF-8 ห้ามใช้ค่าตัวอย่างเดิมกับข้อมูลจริง
+
+5. เปิด `wrangler.jsonc` แล้วตั้งชื่อ local ให้ครบ แม้ยังไม่ได้สร้าง Cloudflare:
+
+   ```jsonc
+   "name": "ipad-school-demo",
+   "database_name": "ipad-school-demo",
+   "database_id": "local-ipad-school-demo",
+   "bucket_name": "ipad-school-demo-documents"
+   ```
+
+   คงชื่อ binding เป็น `DB`, `FILES` และ `ASSETS` ตามไฟล์ตัวอย่าง หากสร้าง D1 จริงภายหลังจึงเปลี่ยน `database_id` เป็น ID ที่ Cloudflare ออกให้
+
+6. สร้างฐานข้อมูลจำลองและข้อมูลตั้งต้น:
+
+   ```powershell
+   npm.cmd run db:migrate:local
+   npm.cmd run db:seed:local
+   ```
+
+   คำสั่งที่ลงท้าย `:local` จะไม่แก้ฐานข้อมูลบน Cloudflare
+
+7. เปิดเว็บจำลอง:
+
+   ```powershell
+   npm.cmd run dev
+   ```
+
+   เมื่อเห็น `Local: http://localhost:3000/` ให้เปิด:
+
+   - หน้าเว็บ `http://localhost:3000`
+   - หน้าผู้ดูแล `http://localhost:3000/admin/login`
+
+   เข้าครั้งแรกด้วยบัญชีจาก `.dev.vars` หากยังใช้ค่าตัวอย่างคือ `admin` / `admin123456` ให้ใช้เฉพาะข้อมูลจำลองและเปลี่ยนบัญชีก่อนใช้จริง
+
+8. ทดลอง workflow ให้ครบก่อนเผยแพร่:
+
+   - เข้าหน้าแรกและหน้าประชาสัมพันธ์
+   - เข้าสู่ระบบผู้ดูแล
+   - เปลี่ยนข้อมูลโรงเรียนและโลโก้
+   - เพิ่มครูและนักเรียนตัวอย่าง
+   - ทดลองลงทะเบียน อนุมัติ พิมพ์ AWAT-03 และคืนเครื่อง
+   - ปิดโปรแกรมด้วย `Ctrl + C`
+
+9. ตรวจ production build บน Windows:
+
+   ```powershell
+   npm.cmd run build
+   npm.cmd run start
+   ```
+
+   `npm.cmd run build` ต้องจบด้วย `Build complete` ส่วน `npm.cmd run start` ใช้ตรวจ Worker build ที่สร้างแล้ว กด `Ctrl + C` เพื่อหยุด
+
+10. หากต้องการเปิดให้โทรศัพท์หรือคอมเครื่องอื่นในวง LAN ทดสอบชั่วคราว:
+
+    ```powershell
+    npm.cmd run dev -- --host 0.0.0.0
+    ipconfig
+    ```
+
+    ดูค่า `IPv4 Address` ของเครื่อง Windows แล้วเปิด `http://หมายเลข-IP:3000` จากอุปกรณ์ที่อยู่ Wi-Fi เดียวกัน หาก Windows Firewall ถาม ให้อนุญาตเฉพาะ **Private networks** และใช้เฉพาะวงเครือข่ายที่เชื่อถือได้ ห้ามทำ port forwarding เปิด dev server ออกอินเทอร์เน็ต
+
+#### ปัญหาที่พบบ่อยบน Windows
+
+| อาการ | วิธีแก้ |
+| --- | --- |
+| `npm.ps1 cannot be loaded because running scripts is disabled` | ใช้ `npm.cmd` และ `npx.cmd` ตามคู่มือนี้โดยไม่ต้องเปลี่ยน Execution Policy หรือให้ฝ่าย IT อนุญาต `RemoteSigned` เฉพาะผู้ใช้ตามนโยบายองค์กร |
+| `node` หรือ `git` ไม่พบ | ปิด PowerShell ทุกหน้าต่างแล้วเปิดใหม่; หากยังไม่พบให้ติดตั้งใหม่และเลือกเพิ่มโปรแกรมลง PATH |
+| `EADDRINUSE: port 3000` | ปิด dev server หน้าต่างเดิมด้วย `Ctrl + C` หรือใช้ `npm.cmd run dev -- --port 3001` แล้วเปิด `http://localhost:3001` |
+| คำสั่งค้างหรือไฟล์ถูกล็อก | ย้ายโครงการออกจาก OneDrive/Google Drive ไป `C:\webapps` แล้วปิดโปรแกรมที่กำลังเปิดไฟล์ใน `.wrangler` หรือ `dist` |
+| ภาษาไทยใน CSV เพี้ยน | บันทึก CSV เป็น UTF-8 หรือใช้ XLSX; อย่าเลือก ANSI ใน Notepad/Excel |
+| เปิดจากโทรศัพท์ไม่ได้ | ตรวจว่าใช้อุปกรณ์ในวง LAN เดียวกัน รันด้วย `--host 0.0.0.0` และอนุญาต Private network ใน Windows Firewall |
+| ต้องการเริ่มฐาน local ใหม่ | หยุด server สำรองข้อมูลที่ต้องใช้ แล้วลบเฉพาะ `.wrangler\state` ด้วย `Remove-Item -Recurse -Force .wrangler\state` จากนั้น migrate และ seed ใหม่ |
+
+> การลบ `.wrangler\state` จะลบฐานข้อมูลและไฟล์จำลองในเครื่องทั้งหมด แต่ไม่กระทบ D1/R2 บน Cloudflare ใช้เฉพาะเมื่อแน่ใจว่าไม่ต้องการข้อมูล local เดิม
+
+หลังทดลองบน Windows ผ่านแล้ว ให้ทำหัวข้อ 19.8 เป็นต้นไปเพื่อสร้างทรัพยากรและเผยแพร่บน Cloudflare ระบบจริงไม่จำเป็นต้องเปิดคอม Windows ทิ้งไว้ เพราะเว็บไซต์ทำงานบน Cloudflare Worker
+
+> ในหัวข้อ Cloudflare ถัดจากนี้ ผู้ใช้ Windows PowerShell สามารถเปลี่ยน `npm` เป็น `npm.cmd` และ `npx` เป็น `npx.cmd` ได้ทุกคำสั่ง เพื่อหลีกเลี่ยงข้อจำกัด `npm.ps1` ขององค์กร ตัวเลือกและผลลัพธ์เหมือนกัน
 
 ### ☁️ 19.8 ล็อกอิน Cloudflare และตรวจบัญชี
 
