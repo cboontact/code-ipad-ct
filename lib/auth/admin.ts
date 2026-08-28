@@ -8,6 +8,8 @@ export const ADMIN_COOKIE = "ct_admin_session";
 export { ADMIN_IDLE_SECONDS } from "@/lib/auth/session-policy";
 const SESSION_COOKIE_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_REFRESH_AFTER_SECONDS = 5 * 60;
+const DEFAULT_INITIAL_ADMIN_USERNAME = "admin";
+const DEFAULT_INITIAL_ADMIN_PASSWORD = "admin123456";
 
 export interface AdminIdentity {
   id: string;
@@ -39,11 +41,13 @@ export async function bootstrapAdminIfNeeded(
     .first<{ count: number }>();
   if ((count?.count ?? 0) > 0) return;
   const env = getEnv();
+  const initialUsername =
+    env.ADMIN_INITIAL_USERNAME?.trim() || DEFAULT_INITIAL_ADMIN_USERNAME;
+  const initialPassword =
+    env.ADMIN_INITIAL_PASSWORD || DEFAULT_INITIAL_ADMIN_PASSWORD;
   if (
-    !env.ADMIN_INITIAL_USERNAME ||
-    !env.ADMIN_INITIAL_PASSWORD ||
-    username !== env.ADMIN_INITIAL_USERNAME ||
-    password !== env.ADMIN_INITIAL_PASSWORD
+    username !== initialUsername ||
+    password !== initialPassword
   )
     return;
   const stamp = now();

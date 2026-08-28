@@ -137,8 +137,8 @@ Bindings ที่ Worker ต้องมี:
 | `ASSETS` | Worker Assets | ไฟล์หน้าเว็บที่ build แล้ว |
 | `SESSION_SECRET` | Secret | ลงนาม token และข้อมูล session |
 | `PII_ENCRYPTION_KEY` | Secret | เข้ารหัสข้อมูลส่วนบุคคล |
-| `ADMIN_INITIAL_USERNAME` | Secret | ชื่อผู้ดูแลเริ่มต้นสำหรับ bootstrap |
-| `ADMIN_INITIAL_PASSWORD` | Secret | รหัสผ่านผู้ดูแลเริ่มต้นสำหรับ bootstrap |
+| `ADMIN_INITIAL_USERNAME` | Secret (ไม่บังคับ) | เปลี่ยนชื่อผู้ดูแล bootstrap จากค่าเริ่มต้น `admin` |
+| `ADMIN_INITIAL_PASSWORD` | Secret (ไม่บังคับ) | เปลี่ยนรหัส bootstrap จากค่าเริ่มต้น `admin123456` |
 
 ตารางสำคัญใน D1 ได้แก่ `teachers`, `students`, `survey_responses`, `student_survey_responses`, `device_assignments`, `student_device_assignments`, `class_advisors`, `device_return_history`, `project_documents`, `system_settings`, `admin_users`, `admin_sessions` และ `audit_logs`
 
@@ -706,14 +706,16 @@ openssl rand -base64 32
 ```dotenv
 SESSION_SECRET=วางค่าสุ่มที่หนึ่งตรงนี้
 PII_ENCRYPTION_KEY=วางค่าสุ่มที่สองตรงนี้
-ADMIN_INITIAL_USERNAME=ตั้งชื่อผู้ใช้เริ่มต้น
-ADMIN_INITIAL_PASSWORD=ตั้งรหัสผ่านที่คาดเดายาก
+ADMIN_INITIAL_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=admin123456
 ADMIN_INITIAL_DISPLAY_NAME=ผู้ดูแลระบบ
 ```
 
+หากไม่กำหนด `ADMIN_INITIAL_USERNAME` และ `ADMIN_INITIAL_PASSWORD` ระบบใหม่จะใช้บัญชีเริ่มต้น `admin` / `admin123456` สำหรับสร้าง `superadmin` คนแรก บัญชีนี้ใช้ได้เฉพาะกรณีที่ตาราง `admin_users` ยังไม่มีข้อมูล หลังเข้าสู่ระบบต้องสร้างบัญชี superadmin ที่ใช้จริง แล้วลบบัญชีเริ่มต้นทันที
+
 ข้อควรระวัง:
 
-1. ห้ามใช้ค่าตัวอย่างในระบบจริง
+1. บัญชี `admin` / `admin123456` เป็นบัญชีชั่วคราวที่คาดเดาได้ ต้องเปลี่ยนออกทันทีหลังติดตั้ง
 2. ห้ามเว้นว่าง `SESSION_SECRET` และ `PII_ENCRYPTION_KEY`
 3. สำรอง `PII_ENCRYPTION_KEY` ใน password manager ขององค์กร
 4. หากเปลี่ยนหรือทำค่านี้สูญหาย ข้อมูลส่วนบุคคลเดิมอาจถอดรหัสไม่ได้
@@ -739,7 +741,7 @@ npm run dev
 - หน้าเว็บ: `http://localhost:3000`
 - ผู้ดูแล: `http://localhost:3000/admin/login`
 
-เมื่อฐานข้อมูลยังไม่มีผู้ดูแล ระบบจะสร้าง `superadmin` ตอนเข้าสู่ระบบครั้งแรกด้วยค่าจาก `.dev.vars`
+เมื่อฐานข้อมูลยังไม่มีผู้ดูแล ระบบจะสร้าง `superadmin` ตอนเข้าสู่ระบบครั้งแรกด้วยค่าจาก `.dev.vars` หรือใช้ค่าเริ่มต้น `admin` / `admin123456` หากไม่ได้กำหนด override
 
 ทดสอบ local อย่างน้อย:
 
@@ -842,6 +844,11 @@ npx wrangler r2 bucket create ipad-documents
 ```bash
 npx wrangler secret put SESSION_SECRET
 npx wrangler secret put PII_ENCRYPTION_KEY
+```
+
+หากต้องการเปลี่ยนบัญชี bootstrap ไม่ให้ใช้ค่าเริ่มต้น `admin` / `admin123456` จึงค่อยเพิ่มสอง Secret นี้:
+
+```bash
 npx wrangler secret put ADMIN_INITIAL_USERNAME
 npx wrangler secret put ADMIN_INITIAL_PASSWORD
 ```
@@ -904,12 +911,13 @@ npm run deploy
 ### 👑 19.15 สร้างผู้ดูแลระบบคนแรก
 
 1. เปิด `https://URL-ของระบบ/admin/login`
-2. เข้าด้วย `ADMIN_INITIAL_USERNAME` และ `ADMIN_INITIAL_PASSWORD`
+2. เข้าด้วยชื่อผู้ใช้ `admin` และรหัสผ่าน `admin123456` หรือค่าที่ override ผ่าน `ADMIN_INITIAL_USERNAME` และ `ADMIN_INITIAL_PASSWORD`
 3. ระบบจะสร้างบัญชี `superadmin` เฉพาะเมื่อยังไม่มีผู้ดูแล
 4. เปิดเมนู **จัดการผู้ดูแลระบบ**
-5. เพิ่มบัญชีใช้งานจริงและกำหนดบทบาทให้ถูกต้อง
-6. ออกจากระบบแล้วทดสอบบัญชีใหม่
-7. เมื่อแน่ใจว่าบัญชีใหม่ใช้งานได้ ให้ลบ bootstrap secrets:
+5. เพิ่มบัญชีใช้งานจริง โดยกำหนดบทบาทเป็น **ผู้ดูแลระดับสูง (superadmin)**
+6. ออกจากระบบ แล้วเข้าสู่ระบบด้วยบัญชีใหม่
+7. ลบบัญชีเริ่มต้น `admin` ผ่านเมนู **จัดการผู้ดูแลระบบ** ทันที
+8. หากเคยกำหนด bootstrap secrets ให้ลบออกเมื่อแน่ใจว่าบัญชีใหม่ใช้งานได้:
 
 ```bash
 npx wrangler secret delete ADMIN_INITIAL_USERNAME
@@ -1018,7 +1026,8 @@ npm run db:seed:remote
 
 ### 🔐 21.2 ล็อกอินผู้ดูแลเริ่มต้นไม่ได้
 
-- ตรวจว่า Worker มี initial username/password secrets
+- ถ้าไม่ได้กำหนด initial secrets ให้ลองบัญชีเริ่มต้น `admin` / `admin123456`
+- หากกำหนด initial secrets ให้ใช้ค่าที่กำหนดแทนบัญชีเริ่มต้น
 - Initial login สร้างบัญชีได้เฉพาะเมื่อ `admin_users` ยังว่าง
 - ถ้ามีผู้ดูแลแล้ว ให้ superadmin รีเซ็ตรหัสหรือสร้างบัญชีใหม่
 - ตรวจว่ากำลังเข้า Worker/D1 ของบัญชีที่ถูกต้อง
