@@ -5,6 +5,17 @@ import {
 } from "@/lib/data/teacher-options";
 import { guardianPrefixOptions } from "@/lib/data/student-options";
 import { isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
+import {
+  isValidStudentIdentityId,
+  isValidThaiCitizenId,
+  normalizeStudentIdentityId,
+} from "@/lib/validation/student-identity";
+
+export {
+  isValidStudentIdentityId,
+  isValidThaiCitizenId,
+  normalizeStudentIdentityId,
+} from "@/lib/validation/student-identity";
 
 export const schoolEmailSchema = z.string().trim()
   .email("กรุณากรอกอีเมลโรงเรียนให้ถูกต้อง").max(180)
@@ -12,11 +23,15 @@ export const schoolEmailSchema = z.string().trim()
 export const ndlpEmailSchema = z.string().trim()
   .email("กรุณากรอกอีเมล NDLP ให้ถูกต้อง").max(180)
   .refine(isNdlpEmail, "อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");
-export function isValidThaiCitizenId(value: string): boolean {
-  if (!/^\d{13}$/.test(value)) return false; const digits = [...value].map(Number);
-  const sum = digits.slice(0, 12).reduce((total, digit, index) => total + digit * (13 - index), 0);
-  return (11 - (sum % 11)) % 10 === digits[12];
-}
+
+export const studentIdentityIdSchema = z.string()
+  .trim()
+  .transform(normalizeStudentIdentityId)
+  .refine(
+    isValidStudentIdentityId,
+    "เลขประจำตัวไม่ถูกต้อง: คนไทยใช้เลข 13 หลัก, เด็กติด G ใช้ G ตามด้วยตัวเลข 12 หลัก หรือบุคคลไม่มีสัญชาติไทยใช้เลข 13 หลักที่ขึ้นต้นด้วย 0",
+  );
+
 export const piiSchema = z.object({
   citizenId: z.string().regex(/^\d{13}$/, "กรุณากรอกเลขประจำตัวประชาชน 13 หลัก").refine(isValidThaiCitizenId, "เลขประจำตัวประชาชนไม่ถูกต้อง"),
   houseNo: z.string().trim().min(1, "กรุณากรอกบ้านเลขที่").max(30), moo: z.string().trim().max(20).optional().default(""),
@@ -59,6 +74,7 @@ export function parseGuardianFullName(value: string): { prefix: typeof guardianP
 }
 
 export const studentPiiSchema = piiSchema.extend({
+  citizenId: studentIdentityIdSchema,
   guardianPrefix: z.enum(guardianPrefixOptions, {
     error: "กรุณาเลือกคำนำหน้าผู้ปกครอง",
   }),

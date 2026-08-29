@@ -2755,9 +2755,10 @@ function DetailDialog({
               })}
               {form.decision === "ACCEPT" && (
                 <>
-                  {editField("citizenId", "เลขประจำตัวประชาชน", {
-                    inputMode: "numeric",
+                  {editField("citizenId", "เลขประจำตัวประชาชน / รหัส G", {
+                    inputMode: "text",
                     maxLength: 13,
+                    placeholder: "เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก",
                   })}
                   {editField("houseNo", "บ้านเลขที่")}
                   {editField("moo", "หมู่")}

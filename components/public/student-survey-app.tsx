@@ -21,7 +21,11 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
-import { isValidThaiCitizenId, parseGuardianFullName } from "@/lib/validation/survey";
+import {
+  isValidStudentIdentityId,
+  normalizeStudentIdentityId,
+  parseGuardianFullName,
+} from "@/lib/validation/survey";
 import { NDLP_EMAIL_PATTERN, SCHOOL_EMAIL_PATTERN, isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
 import { studentGradeNumber } from "@/lib/data/student-options";
 import { IpadProductVisual } from "@/components/public/ipad-product-visual";
@@ -93,7 +97,7 @@ export function StudentSurveyApp(){
     if(decision==="ACCEPT"){
       if(!isSchoolEmail(email)){toast.warning("อีเมลโรงเรียนต้องลงท้ายด้วย @chomthong.ac.th");return false;}
       if(!isNdlpEmail(ndlpEmail)){toast.warning("อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");return false;}
-      if(!isValidThaiCitizenId(pii.citizenId)){toast.warning("กรุณากรอกเลขประจำตัวประชาชนให้ถูกต้อง");return false;}
+      if(!isValidStudentIdentityId(pii.citizenId)){toast.warning("เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G หรือเลขที่ขึ้นต้นด้วย 0");return false;}
       if(!pii.houseNo||!pii.province||!pii.district||!pii.subdistrict||!/^\d{5}$/.test(pii.postalCode)){toast.warning("กรุณากรอกที่อยู่ตามทะเบียนบ้านให้ครบ");return false;}
       if(!parseGuardianFullName(pii.guardianFullName)){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return false;}
       if(!/^0(?:6|8|9)\d{8}$|^0(?:2|3|4|5|7)\d{7}$/.test(pii.guardianPhone)){toast.warning("กรุณากรอกเบอร์โทรศัพท์ผู้ปกครองให้ถูกต้อง");return false;}
@@ -105,7 +109,7 @@ export function StudentSurveyApp(){
     if(!student||!decision||!validate())return;
     const guardian=parseGuardianFullName(pii.guardianFullName);
     const piiPayload=guardian?{
-      citizenId:pii.citizenId,houseNo:pii.houseNo,moo:pii.moo,soi:pii.soi,road:pii.road,
+      citizenId:normalizeStudentIdentityId(pii.citizenId),houseNo:pii.houseNo,moo:pii.moo,soi:pii.soi,road:pii.road,
       province:pii.province,district:pii.district,subdistrict:pii.subdistrict,postalCode:pii.postalCode,
       guardianPrefix:guardian.prefix,guardianName:guardian.name,guardianPhone:pii.guardianPhone,
     }:undefined;
@@ -179,7 +183,7 @@ export function StudentSurveyApp(){
       </section>
       <div className="form-grid two student-contact-grid">
         <label className="field"><span><FontAwesomeIcon icon={faPhone}/> เบอร์โทรศัพท์นักเรียน<b>*</b></span><input inputMode="tel" maxLength={10} placeholder="เช่น 0812345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,""))}/></label>
-        {decision==="ACCEPT"&&input("citizenId","เลขประจำตัวประชาชนนักเรียน",{inputMode:"numeric",maxLength:13,placeholder:"ตัวเลข 13 หลัก"})}
+        {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={15} placeholder="เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก" value={pii.citizenId} onChange={e=>setPii({...pii,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)})}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ ส่วนเด็กติด G และบุคคลไม่มีสัญชาติไทยรองรับตามเลขทะเบียนการศึกษา</small></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมลโรงเรียน<b>*</b></span><input type="email" pattern={SCHOOL_EMAIL_PATTERN} title="ต้องใช้อีเมล @chomthong.ac.th" placeholder="name@chomthong.ac.th" value={email} onChange={e=>setEmail(e.target.value)}/></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมล NDLP<b>*</b></span><input type="email" pattern={NDLP_EMAIL_PATTERN} title="ต้องใช้อีเมล @ndlp.go.th" placeholder="name@ndlp.go.th" value={ndlpEmail} onChange={e=>setNdlpEmail(e.target.value)}/><small className="field-hint">หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา</small></label>}
       </div>
