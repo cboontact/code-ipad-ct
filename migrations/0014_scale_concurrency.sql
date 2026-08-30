@@ -41,7 +41,7 @@ VALUES
   ('province','เชียงใหม่',datetime('now')),
   ('organization','สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเชียงใหม่',datetime('now')),
   ('device_brand','Apple',datetime('now')),
-  ('device_model','iPad A16',datetime('now')),
+  ('device_model','iPad A16 WiFi+Cellular 128GB',datetime('now')),
   ('teacher_ipad_quota','127',datetime('now')),
   ('student_ipad_quota','1763',datetime('now')),
   ('approver_name','นางสาววัลภมาภรค์ อาจนาเสียว',datetime('now')),

@@ -14,7 +14,7 @@ INSERT OR IGNORE INTO system_settings (key,value,updated_at) VALUES
 ('project_name','โครงการส่งเสริมการเรียนรู้ขั้นพื้นฐานทุกที่ ทุกเวลา (Anywhere Anytime) สำหรับโรงเรียน',datetime('now')),
 ('school_name','โรงเรียนจอมทอง',datetime('now')),('subdistrict','ข่วงเปา',datetime('now')),('district','จอมทอง',datetime('now')),
 ('province','เชียงใหม่',datetime('now')),('organization','สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเชียงใหม่',datetime('now')),
-('device_brand','Apple',datetime('now')),('device_model','iPad A16',datetime('now')),
+('device_brand','Apple',datetime('now')),('device_model','iPad A16 WiFi+Cellular 128GB',datetime('now')),
 ('approver_name','',datetime('now')),
 ('teacher_approver_name','',datetime('now')),
 ('student_approver_name','',datetime('now')),('survey_status','OPEN',datetime('now')),

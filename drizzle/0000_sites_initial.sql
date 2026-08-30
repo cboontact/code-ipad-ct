@@ -431,7 +431,7 @@ VALUES
   ('province','เชียงใหม่',datetime('now')),
   ('organization','สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเชียงใหม่',datetime('now')),
   ('device_brand','Apple',datetime('now')),
-  ('device_model','iPad A16',datetime('now')),
+  ('device_model','iPad A16 WiFi+Cellular 128GB',datetime('now')),
   ('teacher_ipad_quota','127',datetime('now')),
   ('student_ipad_quota','1763',datetime('now')),
   ('approver_name','นางสาววัลภมาภรค์ อาจนาเสียว',datetime('now')),
@@ -511,3 +511,12 @@ WHERE publication_group_id IS NULL OR publication_group_id = '';
 
 CREATE INDEX IF NOT EXISTS project_documents_group_idx
   ON project_documents(publication_group_id, attachment_order);
+
+--> statement-breakpoint
+
+-- Source: migrations/0018_update_device_model.sql
+UPDATE system_settings
+SET value = 'iPad A16 WiFi+Cellular 128GB',
+    updated_at = datetime('now')
+WHERE key = 'device_model'
+  AND value = 'iPad A16';

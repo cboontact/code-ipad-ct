@@ -10,7 +10,7 @@ export const defaultSettings: Record<string, string> = {
   province: "เชียงใหม่",
   organization: "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเชียงใหม่",
   device_brand: "Apple",
-  device_model: "iPad A16",
+  device_model: "iPad A16 WiFi+Cellular 128GB",
   teacher_ipad_quota: "127",
   student_ipad_quota: "1763",
   approver_name: "นางสาววัลภมาภรค์ อาจนาเสียว",

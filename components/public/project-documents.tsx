@@ -84,7 +84,7 @@ export function ProjectDocuments() {
             </span>
             <div>
               <small>อุปกรณ์ตามโครงการ</small>
-              <strong>Apple iPad A16</strong>
+              <strong>Apple iPad A16 WiFi+Cellular 128GB</strong>
             </div>
           </article>
           <article className="project-allocation-fact">

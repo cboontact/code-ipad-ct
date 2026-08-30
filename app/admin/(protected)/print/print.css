@@ -20,7 +20,7 @@
 .awat-number{margin:0 0 8mm}
 
 .awat-line{display:inline-block;min-width:27mm;min-height:5.2mm;border-bottom:1px solid #222;text-align:center;padding:0 1mm;line-height:1.05;vertical-align:bottom;white-space:nowrap;overflow:hidden}
-.awat-line.short{min-width:22mm}.awat-line.school{min-width:51mm}.awat-line.organization{min-width:68mm}.awat-line.brand,.awat-line.model{min-width:32mm}.awat-line.serial{min-width:36mm}.awat-line.borrower{min-width:95mm}.awat-line.position{min-width:36mm}.awat-line.teacher-code{min-width:42mm}.awat-line.house{min-width:24mm}.awat-line.small{min-width:18mm}.awat-line.postal{min-width:24mm}.awat-line.phone{min-width:57mm}.awat-line.date{min-width:12mm}.awat-line.month{min-width:22mm}.awat-line.year{min-width:14mm}
+.awat-line.short{min-width:22mm}.awat-line.school{min-width:51mm}.awat-line.organization{min-width:68mm}.awat-line.brand{min-width:22mm}.awat-line.model{width:56mm;min-width:56mm;font-size:17px}.awat-line.serial{min-width:30mm}.awat-line.borrower{min-width:95mm}.awat-line.position{min-width:36mm}.awat-line.teacher-code{min-width:42mm}.awat-line.house{min-width:24mm}.awat-line.small{min-width:18mm}.awat-line.postal{min-width:24mm}.awat-line.phone{min-width:57mm}.awat-line.date{min-width:12mm}.awat-line.month{min-width:22mm}.awat-line.year{min-width:14mm}
 .awat-info{display:grid;row-gap:1.4mm}
 .awat-info>div{min-height:6.3mm;white-space:nowrap}
 
