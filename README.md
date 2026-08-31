@@ -720,7 +720,7 @@ Get-ChildItem
 | `components/admin/admin-shell.tsx` และ `components/admin/admin-login.tsx` | alt text และชื่อโรงเรียนสำรองฝั่งแอดมิน | ป้องกันชื่อโรงเรียนเดิมปรากฏระหว่างโหลด |
 | `components/public/project-documents.tsx` และ `components/public/survey-audience-gateway.tsx` | ชื่อโรงเรียนและข้อความกลุ่มเป้าหมายสำรอง | ใช้ในหน้าประชาสัมพันธ์และหน้าเลือกผู้ลงทะเบียน |
 | `.dev.vars` | Secret สำหรับ local และบัญชี bootstrap หากต้องการ override | ไฟล์นี้ห้ามขึ้น Git |
-| `wrangler.jsonc` | ชื่อ Worker, D1 `database_name`/`database_id` และ R2 `bucket_name` | คง binding เป็น `DB`, `FILES`, `ASSETS` |
+| `wrangler.jsonc` | ชื่อ Worker, D1 `database_name`/`database_id` และ R2 `bucket_name` | คง binding เป็น `DB`, `FILES`, `ASSETS`, `IMAGES` และเปิด Worker cache |
 
 โดเมนอีเมลโรงเรียนเดิมปรากฏทั้งในกติกาตรวจสอบและข้อความช่วยกรอก หลังแก้ `lib/validation/email-domains.ts` ให้ค้นหาข้อความเดิมทั้งหมดแล้วเปลี่ยนให้ครบ:
 
@@ -1025,6 +1025,8 @@ notepad wrangler.jsonc
   "compatibility_date": "2026-05-22",
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "binding": "ASSETS", "directory": "dist/client" },
+  "images": { "binding": "IMAGES" },
+  "cache": { "enabled": true },
   "d1_databases": [
     {
       "binding": "DB",
@@ -1042,7 +1044,7 @@ notepad wrangler.jsonc
 }
 ```
 
-เลือก **File → Save** แล้วปิด Notepad อย่าเปลี่ยน `DB`, `FILES` หรือ `ASSETS` เพราะเป็นชื่อที่โค้ดใช้เชื่อมต่อ
+เลือก **File → Save** แล้วปิด Notepad อย่าเปลี่ยน `DB`, `FILES`, `ASSETS` หรือ `IMAGES` เพราะเป็นชื่อที่โค้ดใช้เชื่อมต่อ โดย `IMAGES` จะย่อรูปประชาสัมพันธ์เป็น WebP คุณภาพสูงตามขนาดหน้าจอขณะส่งออกเท่านั้น ไฟล์ต้นฉบับใน R2 ยังอยู่ครบและไฟล์ดาวน์โหลดไม่ถูกลดคุณภาพ
 
 ##### ขั้นที่ 8 — สร้างตารางฐานข้อมูลจำลอง
 
@@ -1441,6 +1443,7 @@ npm run db:seed:remote
 ### 🖼️ 21.4 อัปโหลดรูปหรือ PDF ไม่ได้
 
 - ตรวจ R2 binding ชื่อ `FILES` และ bucket ใน `wrangler.jsonc`
+- ตรวจ Cloudflare Images binding ชื่อ `IMAGES` และตั้ง `"cache": { "enabled": true }` เพื่อให้รูปตัวอย่างโหลดเร็วเมื่อมีผู้ใช้พร้อมกัน
 - ตรวจว่า Worker กับ R2 อยู่บัญชีเดียวกัน
 - ตรวจข้อจำกัดของแผน Cloudflare และดู Workers Logs
 - การอัปโหลดประชาสัมพันธ์ถูก stream ไป R2 ที่ Worker boundary เพื่อไม่ติด buffer JSON ทั่วไป

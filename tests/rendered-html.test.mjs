@@ -30,6 +30,8 @@ test("keeps production bindings unique and local secrets out of the build", asyn
   assert.equal(new Set(bindings).size, bindings.length);
   assert.deepEqual(config.d1_databases.map(({ binding }) => binding), ["DB"]);
   assert.deepEqual(config.r2_buckets.map(({ binding }) => binding), ["FILES"]);
+  assert.equal(config.images?.binding, "IMAGES");
+  assert.equal(config.cache?.enabled, true);
   await assert.rejects(access(new URL(".dev.vars", serverRoot)));
 });
 
@@ -38,10 +40,11 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, packageJson, previewScript] = await Promise.all([
+  const [css, home, project, ipadVisual, packageJson, previewScript] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
+    readFile(new URL("components/public/ipad-product-visual.tsx", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("scripts/start-worker-preview.mjs", root), "utf8"),
   ]);
@@ -52,6 +55,10 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(home, /นักเรียน/);
   assert.match(project, /1,890|1890/);
   assert.match(project, /Apple iPad A16/);
+  assert.match(project, /\/preview\?w=1200/);
+  assert.match(project, /srcSet/);
+  assert.match(ipadVisual, /quality=\{92\}/);
+  assert.doesNotMatch(ipadVisual, /unoptimized/);
   assert.match(packageJson, /start-worker-preview\.mjs/);
   assert.match(previewScript, /wrangler\.json/);
   assert.match(previewScript, /\.dev\.vars/);

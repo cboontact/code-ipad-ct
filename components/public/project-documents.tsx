@@ -170,9 +170,17 @@ export function ProjectDocuments() {
                         {/* Uploaded images have no dimensions until the browser reads the R2 object. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`/api/public/documents/${file.id}/file`}
+                          src={`/api/public/documents/${file.id}/preview?w=800`}
+                          srcSet={[
+                            `/api/public/documents/${file.id}/preview?w=480 480w`,
+                            `/api/public/documents/${file.id}/preview?w=800 800w`,
+                            `/api/public/documents/${file.id}/preview?w=1200 1200w`,
+                            `/api/public/documents/${file.id}/preview?w=1600 1600w`,
+                          ].join(", ")}
+                          sizes="(max-width: 640px) calc(100vw - 40px), (max-width: 1100px) calc(100vw - 80px), 1120px"
                           alt={`${doc.title} รูปที่ ${index + 1}`}
                           loading="lazy"
+                          decoding="async"
                         />
                       </a>
                     ))}

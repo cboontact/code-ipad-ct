@@ -10,7 +10,8 @@ export function IpadProductVisual({ className = "" }: { className?: string }) {
         height={900}
         alt=""
         priority
-        unoptimized
+        quality={92}
+        sizes="(max-width: 640px) 180px, (max-width: 1024px) 260px, 360px"
       />
     </div>
   );

@@ -12,13 +12,7 @@ interface Env {
   ADMIN_INITIAL_USERNAME?: string;
   ADMIN_INITIAL_PASSWORD?: string;
   ADMIN_INITIAL_DISPLAY_NAME?: string;
-  IMAGES: {
-    input(stream: ReadableStream): {
-      transform(options: Record<string, unknown>): {
-        output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
-      };
-    };
-  };
+  IMAGES: ImagesBinding;
 }
 
 interface ExecutionContext {
@@ -43,6 +37,7 @@ function publicCacheTtl(pathname: string): number | null {
   if (pathname === "/api/public/logo") return 300;
   if (/^\/api\/public\/areas\/[^/]+\/teachers$/.test(pathname)) return 10;
   if (/^\/api\/public\/documents\/[^/]+\/file$/.test(pathname)) return 300;
+  if (/^\/api\/public\/documents\/[^/]+\/preview$/.test(pathname)) return 86_400;
   return null;
 }
 

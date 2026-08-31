@@ -4,6 +4,7 @@ export interface AppEnv {
   DB: D1Database;
   FILES: R2Bucket;
   ASSETS: Fetcher;
+  IMAGES: ImagesBinding;
   SESSION_SECRET?: string;
   PII_ENCRYPTION_KEY?: string;
   ADMIN_INITIAL_USERNAME?: string;
