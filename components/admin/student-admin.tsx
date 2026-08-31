@@ -75,14 +75,17 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
   const [importOpen,setImportOpen] = useState(false), [importRows,setImportRows] = useState<Row[]>([]), [printId,setPrintId] = useState<string|null>(null);
   const [page,setPage] = useState(1);
   const frame = useRef<HTMLIFrameElement>(null);
-  async function load() {
-    setLoading(true);
+  async function load(options: { silent?: boolean } = {}) {
+    if (!options.silent) setLoading(true);
     try {
       const response = await fetch("/api/admin/students"), body = await readJson<{rows:Row[];totals:Row;error?:string}>(response);
       if (!response.ok) throw new Error(body.error);
       setRows(body.rows ?? []); setTotals(body.totals ?? {});
-    } catch (error) { toast.error(error instanceof Error ? error.message : "โหลดข้อมูลนักเรียนไม่สำเร็จ"); }
-    finally { setLoading(false); }
+    } catch (error) {
+      if (!options.silent) toast.error(error instanceof Error ? error.message : "โหลดข้อมูลนักเรียนไม่สำเร็จ");
+    } finally {
+      if (!options.silent) setLoading(false);
+    }
   }
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -99,7 +102,7 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
     setBusy(true);
     try {
       const response = await fetch("/api/admin/students",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,id,data,...extra})});
-      const body = await readJson<{error?:string;inserted?:number;updated?:number;skipped?:number}>(response);
+      const body = await readJson<{error?:string;inserted?:number;updated?:number;skipped?:number;approvalStatus?:string;approvedAt?:string}>(response);
       if (!response.ok) throw new Error(body.error);
       if (action === "import") toast.success(`นำเข้าสำเร็จ เพิ่ม ${body.inserted??0} แก้ไข ${body.updated??0} ข้าม ${body.skipped??0}`);
       else if (action === "reopen") toast.success("เปิดให้นักเรียนแก้ไขคำตอบแล้ว");
@@ -107,7 +110,17 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
       else if (action === "approve") toast.success("อนุมัติการรับ iPad แล้ว");
       else if (action === "reject") toast.success("บันทึกไม่อนุมัติแล้ว และคืนโควตาเรียบร้อย");
       else toast.success("บันทึกเรียบร้อย");
-      await load(); return true;
+      if ((action === "approve" || action === "reject") && id && body.approvalStatus) {
+        setRows(current => current.map(row => s(row.id) === id ? {
+          ...row,
+          approval_status: body.approvalStatus,
+          approved_at: body.approvedAt ?? new Date().toISOString(),
+        } : row));
+        void load({ silent: true });
+      } else {
+        await load();
+      }
+      return true;
     } catch (error) { toast.error(error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ"); return false; }
     finally { setBusy(false); }
   }
@@ -133,6 +146,17 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
   }
   const grades = useMemo(() => [...new Set(rows.map(row=>s(row.grade_level)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th",{numeric:true})),[rows]);
   const rooms = useMemo(() => [...new Set(rows.filter(row=>!grade||s(row.grade_level)===grade).map(row=>s(row.room)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th",{numeric:true})),[rows,grade]);
+  const visibleTotals = useMemo(() => {
+    if (!grade && !room) return totals;
+    const scopedRows = rows.filter(row => Number(row.is_active) !== 0 && (!grade || s(row.grade_level) === grade) && (!room || s(row.room) === room));
+    const responded = scopedRows.filter(row => s(row.survey_status) !== "PENDING").length;
+    return {
+      total: scopedRows.length,
+      responded,
+      accepted: scopedRows.filter(row => s(row.survey_status) === "ACCEPT").length,
+      declined: scopedRows.filter(row => s(row.survey_status) === "DECLINE").length,
+    };
+  },[rows,totals,grade,room]);
   const filtered = useMemo(() => {
     const query=search.trim().toLowerCase();
     return rows.filter(row => {
@@ -151,8 +175,8 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
       {!resultsView&&<button className="button primary" onClick={()=>setImportOpen(true)}><FontAwesomeIcon icon={faFileArrowUp}/> นำเข้ารายชื่อ</button>}
     </div>
     <div className={`student-admin-kpis${resultsView?" student-results-kpis":""}`}>
-      <StudentKpi label="นักเรียนทั้งหมด" value={n(totals.total)} icon={faUserGraduate} color="#1599d6"/>
-      {resultsView?<><StudentKpi label="ลงทะเบียนแล้ว" value={n(totals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(totals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ไม่รับ iPad" value={n(totals.declined)} icon={faBan} color="#e79b29"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(totals.total)-n(totals.responded))} icon={faClock} color="#f4b942"/></>:<><StudentKpi label="ลงทะเบียนแล้ว" value={n(totals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(totals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(totals.total)-n(totals.responded))} icon={faClock} color="#f4b942"/></>}
+      <StudentKpi label="นักเรียนทั้งหมด" value={n(visibleTotals.total)} icon={faUserGraduate} color="#1599d6"/>
+      {resultsView?<><StudentKpi label="ลงทะเบียนแล้ว" value={n(visibleTotals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(visibleTotals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ไม่รับ iPad" value={n(visibleTotals.declined)} icon={faBan} color="#e79b29"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(visibleTotals.total)-n(visibleTotals.responded))} icon={faClock} color="#f4b942"/></>:<><StudentKpi label="ลงทะเบียนแล้ว" value={n(visibleTotals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(visibleTotals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(visibleTotals.total)-n(visibleTotals.responded))} icon={faClock} color="#f4b942"/></>}
     </div>
     <section className="admin-panel">
       {resultsView&&<div className="results-table-heading"><div><h2><FontAwesomeIcon icon={faClipboardList}/> รายการลงทะเบียนนักเรียน</h2><p>แสดง {firstShown}-{lastShown} จากผลลัพธ์ {filtered.length} รายการ · ทั้งหมด {rows.length} รายการ</p></div><div className="result-icon-actions"><button className="icon-button csv-action" type="button" disabled={busy} onClick={()=>void exportResults("summary","csv")} aria-label="ดาวน์โหลด Summary CSV" title="ดาวน์โหลด Summary CSV"><FontAwesomeIcon icon={faFileCsv}/></button><button className="icon-button xlsx-action" type="button" disabled={busy} onClick={()=>void exportResults("full","xlsx")} aria-label="ดาวน์โหลด Full XLSX" title="ดาวน์โหลด Full XLSX"><FontAwesomeIcon icon={faFileExcel}/></button><button className="icon-button print-action" type="button" onClick={()=>setPrintId("__batch__")} aria-label="พิมพ์ AWAT-03 แบบชุด" title="พิมพ์ AWAT-03 แบบชุด"><FontAwesomeIcon icon={faPrint}/></button></div></div>}

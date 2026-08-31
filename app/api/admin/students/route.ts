@@ -198,7 +198,7 @@ export async function POST(request: Request) {
         .bind(approvalStatus,stamp,admin.id,approvalNote,stamp,admin.id,input.id).run();
       await audit(db,admin.id,input.action === "approve" ? "APPROVE_STUDENT_IPAD" : "REJECT_STUDENT_IPAD","student",input.id,
         `${input.action === "approve" ? "อนุมัติ" : "ไม่อนุมัติ"}การรับ iPad ของ ${response.prefix}${response.first_name} ${response.last_name}`);
-      return json({ success: true, approvalStatus });
+      return json({ success: true, approvalStatus, approvedAt: stamp });
     }
 
     if (input.action === "serial") {

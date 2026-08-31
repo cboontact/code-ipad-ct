@@ -40,11 +40,12 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, packageJson, previewScript] = await Promise.all([
+  const [css, home, project, ipadVisual, studentAdmin, packageJson, previewScript] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
     readFile(new URL("components/public/ipad-product-visual.tsx", root), "utf8"),
+    readFile(new URL("components/admin/student-admin.tsx", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("scripts/start-worker-preview.mjs", root), "utf8"),
   ]);
@@ -59,6 +60,8 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(project, /srcSet/);
   assert.match(ipadVisual, /quality=\{92\}/);
   assert.doesNotMatch(ipadVisual, /unoptimized/);
+  assert.match(studentAdmin, /const visibleTotals = useMemo/);
+  assert.match(studentAdmin, /void load\(\{ silent: true \}\)/);
   assert.match(packageJson, /start-worker-preview\.mjs/);
   assert.match(previewScript, /wrangler\.json/);
   assert.match(previewScript, /\.dev\.vars/);
