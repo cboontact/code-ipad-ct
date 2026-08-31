@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       WHERE t.id=? AND t.is_active=1`).bind(input.teacherId).first<{ id: string; prefix: string; first_name: string; last_name: string; position: string | null; academic_rank: string | null; email: string | null; ndlp_email: string | null; phone: string | null; response_id: string | null; public_locked: number }>();
     if (!teacher) return json({ error: "ไม่พบข้อมูลครู" }, 404);
     if (teacher.public_locked) return json({ error: "ครูท่านนี้บันทึกข้อมูลแล้ว หากต้องการแก้ไขกรุณาติดต่อผู้ดูแลระบบ" }, 409);
-    const verificationToken = await signToken({ teacherId: teacher.id, purpose: "survey" }, 15 * 60);
+    const verificationToken = await signToken({ teacherId: teacher.id, purpose: "survey" }, 2 * 60 * 60);
     return json({ verificationToken, reopened: Boolean(teacher.response_id), teacher: { id: teacher.id, name: `${teacher.prefix}${teacher.first_name} ${teacher.last_name}`, position: teacher.position ?? "", academicRank: teacher.academic_rank ?? "", email: teacher.email ?? "", ndlpEmail: teacher.ndlp_email ?? "", phone: teacher.phone ?? "" } });
   } catch (error) { return apiError(error); }
 }

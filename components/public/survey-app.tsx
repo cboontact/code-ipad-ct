@@ -311,26 +311,47 @@ export function SurveyApp() {
     if (!selected || !decision) return;
     setBusy(true);
     try {
-      const r = await fetch("/api/public/submit", {
+      const payload = {
+        teacherId: selected.id,
+        decision,
+        profile,
+        privacyAcknowledged: decision === "ACCEPT" ? privacy : false,
+        pii: decision === "ACCEPT" ? pii : undefined,
+      };
+      const postSurvey = async (verificationToken: string) => {
+        const response = await fetch("/api/public/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            teacherId: selected.id,
-            verificationToken: token,
-            decision,
-            profile,
-            privacyAcknowledged: decision === "ACCEPT" ? privacy : false,
-            pii: decision === "ACCEPT" ? pii : undefined,
-          }),
-        }),
-        data = await readJson<{
+          body: JSON.stringify({ ...payload, verificationToken }),
+        });
+        return {
+          response,
+          data: await readJson<{
+            error?: string;
+            teacherName: string;
+            submittedAt: string;
+          }>(response),
+        };
+      };
+      let result = await postSurvey(token);
+      if (result.response.status === 401) {
+        const verifyResponse = await fetch("/api/public/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teacherId: selected.id }),
+        });
+        const verifyData = await readJson<{
           error?: string;
-          teacherName: string;
-          submittedAt: string;
-        }>(r);
-      if (!r.ok) throw new Error(data.error);
+          verificationToken?: string;
+        }>(verifyResponse);
+        if (!verifyResponse.ok || !verifyData.verificationToken)
+          throw new Error(verifyData.error || "กรุณายืนยันตัวตนใหม่อีกครั้ง");
+        setToken(verifyData.verificationToken);
+        result = await postSurvey(verifyData.verificationToken);
+      }
+      if (!result.response.ok) throw new Error(result.data.error);
       setConfirm(false);
-      setSuccess({ name: data.teacherName, at: data.submittedAt });
+      setSuccess({ name: result.data.teacherName, at: result.data.submittedAt });
       toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");

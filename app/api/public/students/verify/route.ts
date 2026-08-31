@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       });
     const audience = ["4", "5", "6"].includes(studentGradeNumber(student.grade_level)) ? "student_upper" : "student_lower";
     if (!registrationWindow(settings, audience).isOpen) throw new Error("STUDENT_REGISTRATION_CLOSED");
-    const verificationToken = await signToken({ studentId: student.id, purpose: "student-survey" }, 15 * 60);
+    const verificationToken = await signToken({ studentId: student.id, purpose: "student-survey" }, 2 * 60 * 60);
     return json({
       verificationToken,
       reopened: Boolean(student.response_id),

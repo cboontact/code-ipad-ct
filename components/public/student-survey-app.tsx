@@ -115,10 +115,21 @@ export function StudentSurveyApp(){
     }:undefined;
     setBusy(true);
     try{
-      const r=await fetch("/api/public/students/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({studentId:student.id,verificationToken:token,decision,phone,email:decision==="ACCEPT"?email.trim():"",ndlpEmail:decision==="ACCEPT"?ndlpEmail.trim():"",privacyAcknowledged:decision==="ACCEPT"?privacy:false,pii:decision==="ACCEPT"?piiPayload:undefined})}),
-        data=await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"]}>(r);
-      if(!r.ok)throw new Error(data.error);
-      setConfirm(false);setRegistration({student,decision,approvalStatus:data.approvalStatus,submittedAt:data.submittedAt});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
+      const payload={studentId:student.id,decision,phone,email:decision==="ACCEPT"?email.trim():"",ndlpEmail:decision==="ACCEPT"?ndlpEmail.trim():"",privacyAcknowledged:decision==="ACCEPT"?privacy:false,pii:decision==="ACCEPT"?piiPayload:undefined};
+      const postSurvey=async(verificationToken:string)=>{
+        const response=await fetch("/api/public/students/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,verificationToken})});
+        return {response,data:await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"]}>(response)};
+      };
+      let result=await postSurvey(token);
+      if(result.response.status===401){
+        const verifyResponse=await fetch("/api/public/students/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({studentCode:student.studentCode})});
+        const verifyData=await readJson<{error?:string;verificationToken?:string}>(verifyResponse);
+        if(!verifyResponse.ok||!verifyData.verificationToken)throw new Error(verifyData.error||"กรุณายืนยันตัวตนใหม่อีกครั้ง");
+        setToken(verifyData.verificationToken);
+        result=await postSurvey(verifyData.verificationToken);
+      }
+      if(!result.response.ok)throw new Error(result.data.error);
+      setConfirm(false);setRegistration({student,decision,approvalStatus:result.data.approvalStatus,submittedAt:result.data.submittedAt});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
     }catch(error){toast.error(error instanceof Error?error.message:"บันทึกข้อมูลไม่สำเร็จ");}
     finally{setBusy(false);}
   }
