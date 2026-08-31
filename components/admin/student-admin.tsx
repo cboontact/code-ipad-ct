@@ -169,6 +169,16 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
   const pagedRows = filtered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
   const firstShown = filtered.length ? (currentPage-1)*PAGE_SIZE+1 : 0;
   const lastShown = Math.min(currentPage*PAGE_SIZE,filtered.length);
+  const batchPrintUrl = useMemo(() => {
+    const params=new URLSearchParams({embed:"1"});
+    const query=search.trim();
+    if(query)params.set("search",query);
+    if(grade)params.set("grade",grade);
+    if(room)params.set("room",room);
+    if(status)params.set("status",status);
+    if(approval)params.set("approval",approval);
+    return `/admin/print/student-batch?${params.toString()}`;
+  },[search,grade,room,status,approval]);
   return <>
     <div className="admin-topline">
       <div><span className="eyebrow">ระบบจัดการ</span><h1 className="admin-page-title"><FontAwesomeIcon icon={resultsView?faClipboardList:faUserGraduate}/> {resultsView?"ลงทะเบียนนักเรียน":"จัดการนักเรียน"}</h1></div>
@@ -218,7 +228,7 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
         }}
       />
     )}
-    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__batch__"?"/admin/print/student-batch?embed=1":`/admin/print/student/${printId}?embed=1`}/></section></div>}
+    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__batch__"?batchPrintUrl:`/admin/print/student/${printId}?embed=1`}/></section></div>}
   </>;
 }
 

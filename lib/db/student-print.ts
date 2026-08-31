@@ -68,11 +68,47 @@ export async function getPrintableStudent(studentId: string): Promise<PrintableS
   };
 }
 
-export async function getAcceptedStudentIds(): Promise<string[]> {
+export interface StudentPrintFilters {
+  search?: string;
+  grade?: string;
+  room?: string;
+  status?: string;
+  approval?: string;
+}
+
+export async function getAcceptedStudentIds(filters: StudentPrintFilters = {}): Promise<string[]> {
+  if (filters.status && filters.status !== "ACCEPT") return [];
+
   const db = await ensureDatabase();
+  const clauses = ["s.is_active=1", "r.decision='ACCEPT'", "r.public_locked=1"];
+  const values: string[] = [];
+  const grade = filters.grade?.trim();
+  const room = filters.room?.trim();
+  const approval = filters.approval?.trim();
+  const search = filters.search?.trim();
+
+  if (grade) {
+    clauses.push("s.grade_level=?");
+    values.push(grade);
+  }
+  if (room) {
+    clauses.push("s.room=?");
+    values.push(room);
+  }
+  if (approval) {
+    clauses.push("COALESCE(r.approval_status,'PENDING')=?");
+    values.push(approval);
+  }
+  if (search) {
+    clauses.push(`(s.student_code LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?
+      OR (s.prefix || s.first_name || ' ' || s.last_name) LIKE ?)`);
+    const pattern = `%${search}%`;
+    values.push(pattern,pattern,pattern,pattern);
+  }
+
   const result = await db.prepare(`SELECT s.id FROM students s
     JOIN student_survey_responses r ON r.student_id=s.id
-    WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
-    ORDER BY s.grade_level,s.room,s.class_number,r.submitted_at,r.id`).all<{id:string}>();
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY s.grade_level,s.room,s.class_number,r.submitted_at,r.id`).bind(...values).all<{id:string}>();
   return (result.results ?? []).map(row => row.id);
 }

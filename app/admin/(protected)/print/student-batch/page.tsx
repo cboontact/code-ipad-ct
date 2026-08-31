@@ -3,9 +3,18 @@ import { StudentAwatDocument } from "@/components/admin/student-awat-document";
 import { getAcceptedStudentIds, getPrintableStudent } from "@/lib/db/student-print";
 import "../print.css";
 
-export default async function StudentBatchPrintPage({searchParams}:{searchParams:Promise<{embed?:string}>}) {
-  const {embed}=await searchParams;
-  const ids = await getAcceptedStudentIds();
+type StudentBatchSearchParams = {
+  embed?: string;
+  search?: string;
+  grade?: string;
+  room?: string;
+  status?: string;
+  approval?: string;
+};
+
+export default async function StudentBatchPrintPage({searchParams}:{searchParams:Promise<StudentBatchSearchParams>}) {
+  const {embed,search,grade,room,status,approval}=await searchParams;
+  const ids = await getAcceptedStudentIds({search,grade,room,status,approval});
   const items = (await Promise.all(ids.map(getPrintableStudent))).filter(Boolean);
   return (
     <div className={`print-stage${embed==="1"?" print-embed":""}`}>
