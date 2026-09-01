@@ -10,9 +10,11 @@ export async function GET(request:Request){
   try{
     const url=new URL(request.url),type=url.searchParams.get("type")==="full"?"full":"summary",admin=await requireAdminApi(request,type==="full"?"superadmin":undefined),db=await ensureDatabase();
     if(url.searchParams.get("audience")==="students"){
-      const decision=url.searchParams.get("decision"),grade=url.searchParams.get("grade"),room=url.searchParams.get("room"),clauses=["s.is_active=1"],bindings:unknown[]=[];
+      const decision=url.searchParams.get("decision"),approval=url.searchParams.get("approval"),grade=url.searchParams.get("grade"),room=url.searchParams.get("room"),search=url.searchParams.get("search")?.trim().toLowerCase(),clauses=["s.is_active=1"],bindings:unknown[]=[];
       if(decision&&["ACCEPT","DECLINE","PENDING"].includes(decision)){if(decision==="PENDING")clauses.push("(r.id IS NULL OR r.public_locked=0)");else{clauses.push("r.decision=? AND r.public_locked=1");bindings.push(decision);}}
       if(grade){clauses.push("s.grade_level=?");bindings.push(grade);} if(room){clauses.push("s.room=?");bindings.push(room);}
+      if(approval&&["PENDING","APPROVED","REJECTED"].includes(approval)){clauses.push("r.public_locked=1 AND r.decision='ACCEPT' AND COALESCE(r.approval_status,'PENDING')=?");bindings.push(approval);}
+      if(search){clauses.push(`(instr(lower(COALESCE(s.student_code,'')),?)>0 OR instr(lower(COALESCE(s.prefix,'')),?)>0 OR instr(lower(COALESCE(s.first_name,'')),?)>0 OR instr(lower(COALESCE(s.last_name,'')),?)>0 OR instr(lower(COALESCE(s.room,'')),?)>0)`);bindings.push(search,search,search,search,search);}
       const result=await db.prepare(`SELECT s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.class_number,s.birth_date,s.phone,
         advisor1.prefix || advisor1.first_name || ' ' || advisor1.last_name ||
           CASE WHEN advisor2.id IS NOT NULL THEN ' / ' || advisor2.prefix || advisor2.first_name || ' ' || advisor2.last_name ELSE '' END AS advisor_name,

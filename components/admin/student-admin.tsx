@@ -127,11 +127,18 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
   async function exportResults(type:"summary"|"full",format:"csv"|"xlsx") {
     setBusy(true);
     try {
-      const response=await fetch(`/api/admin/export?audience=students&type=${type}`),body=await readJson<{rows:Row[];error?:string}>(response);
+      const params=new URLSearchParams({audience:"students",type});
+      const query=search.trim();
+      if(query)params.set("search",query);
+      if(grade)params.set("grade",grade);
+      if(room)params.set("room",room);
+      if(status)params.set("decision",status);
+      if(approval)params.set("approval",approval);
+      const response=await fetch(`/api/admin/export?${params.toString()}`),body=await readJson<{rows:Row[];error?:string}>(response);
       if(!response.ok) throw new Error(body.error);
       const date=new Date().toISOString().slice(0,10),fileName=`student-ipad-survey-${date}.${format}`;
       if(format==="xlsx") await writeXlsxRows(body.rows,fileName); else downloadCsv(body.rows,fileName);
-      toast.success("เตรียมไฟล์ส่งออกแล้ว");
+      toast.success(`เตรียมไฟล์ตามตัวกรองแล้ว ${body.rows.length.toLocaleString("th-TH")} รายการ`);
     } catch(error) { toast.error(error instanceof Error?error.message:"ส่งออกข้อมูลไม่สำเร็จ"); }
     finally { setBusy(false); }
   }
