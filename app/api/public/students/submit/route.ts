@@ -2,7 +2,7 @@ import { ensureDatabase, getSettings, id, now } from "@/lib/db/runtime";
 import { apiError, json } from "@/lib/http";
 import { assertSameOrigin, clientIp, enforcePublicRateLimit } from "@/lib/security/request";
 import { encryptJson, verifyToken } from "@/lib/security/crypto";
-import { studentSubmitSchema } from "@/lib/validation/survey";
+import { isGuardianNameSameAsStudent, studentSubmitSchema } from "@/lib/validation/survey";
 import { isValidThaiAddress } from "@/lib/data/thai-address";
 import { studentGradeNumber } from "@/lib/data/student-options";
 import { registrationWindow } from "@/lib/registration-window";
@@ -23,6 +23,13 @@ export async function POST(request: Request) {
     const student = await db.prepare("SELECT id,prefix,first_name,last_name,grade_level FROM students WHERE id=? AND is_active=1")
       .bind(input.studentId).first<{id:string;prefix:string;first_name:string;last_name:string;grade_level:string}>();
     if (!student) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 404);
+    if (
+      input.decision === "ACCEPT"
+      && input.pii
+      && isGuardianNameSameAsStudent(input.pii.guardianName, `${student.first_name} ${student.last_name}`)
+    ) {
+      return json({ error: "ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง" }, 400);
+    }
     const registrationAudience = ["4", "5", "6"].includes(studentGradeNumber(student.grade_level)) ? "student_upper" : "student_lower";
     if (!registrationWindow(settings, registrationAudience).isOpen) throw new Error("STUDENT_REGISTRATION_CLOSED");
     const configuredQuota = Number.parseInt(settings.student_ipad_quota ?? "1763", 10);

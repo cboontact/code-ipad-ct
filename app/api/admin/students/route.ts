@@ -5,7 +5,7 @@ import { ensureDatabase, id, now } from "@/lib/db/runtime";
 import { apiError, json } from "@/lib/http";
 import { assertSameOrigin } from "@/lib/security/request";
 import { decryptJson, encryptJson } from "@/lib/security/crypto";
-import { studentPiiSchema, type StudentPersonalData } from "@/lib/validation/survey";
+import { isGuardianNameSameAsStudent, studentPiiSchema, type StudentPersonalData } from "@/lib/validation/survey";
 import { normalizeStudentGrade, normalizeStudentRoom, studentGradeOptions, studentRoomOptions } from "@/lib/data/student-options";
 import { isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
 
@@ -150,16 +150,21 @@ export async function POST(request: Request) {
         return json({ error: "กรุณากรอกเบอร์โทรศัพท์นักเรียนให้ถูกต้อง" }, 400);
       if (email && !isSchoolEmail(email)) return json({ error: "อีเมลโรงเรียนต้องลงท้ายด้วย @chomthong.ac.th" }, 400);
       if (ndlpEmail && !isNdlpEmail(ndlpEmail)) return json({ error: "อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th" }, 400);
-      await db.prepare(`UPDATE students SET student_code=?,prefix=?,first_name=?,last_name=?,grade_level=?,room=?,birth_date=?,phone=?,school_email=?,ndlp_email=?,is_active=?,updated_at=? WHERE id=?`)
-        .bind(studentCode,prefix,firstName,lastName,gradeLevel,room,birthDate,phone||null,email||null,ndlpEmail||null,data.isActive===false?0:1,stamp,input.id).run();
-      await renumberStudentClasses(db);
       const response = await db.prepare("SELECT id,decision,approval_status FROM student_survey_responses WHERE student_id=?").bind(input.id).first<{id:string;decision:string;approval_status:string}>();
+      let pii: StudentPersonalData | null = null;
       if (response?.decision === "ACCEPT") {
-        const pii = studentPiiSchema.parse({
+        pii = studentPiiSchema.parse({
           citizenId:clean(data.citizenId,13),guardianPrefix:clean(data.guardianPrefix,20),guardianName:clean(data.guardianName,200),guardianPhone:clean(data.guardianPhone,20),
           houseNo:clean(data.houseNo,30),moo:clean(data.moo,20),soi:clean(data.soi,100),road:clean(data.road,100),
           subdistrict:clean(data.subdistrict,100),district:clean(data.district,100),province:clean(data.province,100),postalCode:clean(data.postalCode,5),
         });
+        if (isGuardianNameSameAsStudent(pii.guardianName, `${firstName} ${lastName}`))
+          return json({ error: "ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง" }, 400);
+      }
+      await db.prepare(`UPDATE students SET student_code=?,prefix=?,first_name=?,last_name=?,grade_level=?,room=?,birth_date=?,phone=?,school_email=?,ndlp_email=?,is_active=?,updated_at=? WHERE id=?`)
+        .bind(studentCode,prefix,firstName,lastName,gradeLevel,room,birthDate,phone||null,email||null,ndlpEmail||null,data.isActive===false?0:1,stamp,input.id).run();
+      await renumberStudentClasses(db);
+      if (pii) {
         const encrypted = await encryptJson(pii);
         await db.prepare("UPDATE student_survey_responses SET pii_ciphertext=?,pii_iv=?,updated_at=?,updated_by_admin_id=? WHERE student_id=?")
           .bind(encrypted.ciphertext,encrypted.iv,stamp,admin.id,input.id).run();

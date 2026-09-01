@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 import { downloadCsv, readTabularFile, writeXlsxRows, type SpreadsheetRow } from "@/lib/spreadsheet-client";
 import { normalizeStudentGrade, normalizeStudentRoom, studentGradeOptions, studentRoomOptions } from "@/lib/data/student-options";
-import { parseGuardianFullName } from "@/lib/validation/survey";
+import { isGuardianNameSameAsStudent, parseGuardianFullName } from "@/lib/validation/survey";
 import { NDLP_EMAIL_PATTERN, SCHOOL_EMAIL_PATTERN } from "@/lib/validation/email-domains";
 
 type Row = Record<string, unknown>;
@@ -253,7 +253,7 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
   const gradeValue=normalizeStudentGrade(initial.grade_level);
   const roomValue=normalizeStudentRoom(initial.room);
   const [editing,setEditing]=useState(value.startEditing??!value.id);
-  async function submit(event:FormEvent<HTMLFormElement>) { event.preventDefault(); const fd=new FormData(event.currentTarget),data=Object.fromEntries(fd); if(hasAwat){const guardian=parseGuardianFullName(s(data.guardianFullName));if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return;}data.guardianPrefix=guardian.prefix;data.guardianName=guardian.name;delete data.guardianFullName;} await save(data); }
+  async function submit(event:FormEvent<HTMLFormElement>) { event.preventDefault(); const fd=new FormData(event.currentTarget),data=Object.fromEntries(fd); if(hasAwat){const guardian=parseGuardianFullName(s(data.guardianFullName));if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return;}if(isGuardianNameSameAsStudent(guardian.name,`${s(data.firstName)} ${s(data.lastName)}`)){toast.warning("ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง");return;}data.guardianPrefix=guardian.prefix;data.guardianName=guardian.name;delete data.guardianFullName;} await save(data); }
   const fullName=`${s(initial.prefix)}${s(initial.first_name)} ${s(initial.last_name)}`.trim();
   return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)close()}}><section className="modal teacher-editor-modal editor-modal student-editor-modal" onMouseDown={event=>event.stopPropagation()}><header className="student-editor-header"><div className="student-editor-title"><span><FontAwesomeIcon icon={faUserGraduate}/></span><div><small>{!value.id?"เพิ่มรายชื่อใหม่":editing?"แก้ไขข้อมูลเดิม":"ข้อมูลนักเรียนและการลงทะเบียน"}</small><h2>{!value.id?"เพิ่มนักเรียน":editing?"แก้ไขข้อมูลนักเรียน":fullName}</h2></div></div><button className="icon-button" onClick={close} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></header>{editing?<form onSubmit={submit} className="admin-form-grid student-editor-form">
     {value.id&&<div className="student-editor-advisor full"><span><FontAwesomeIcon icon={faUserTie}/></span><div><small>ครูที่ปรึกษา</small><b>{s(initial.advisor_name)||"ยังไม่ได้กำหนดครูที่ปรึกษา"}</b></div></div>}

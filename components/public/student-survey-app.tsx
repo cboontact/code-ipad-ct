@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 import {
+  isGuardianNameSameAsStudent,
   isValidStudentIdentityId,
   normalizeStudentIdentityId,
   parseGuardianFullName,
@@ -99,7 +100,9 @@ export function StudentSurveyApp(){
       if(!isNdlpEmail(ndlpEmail)){toast.warning("อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");return false;}
       if(!isValidStudentIdentityId(pii.citizenId)){toast.warning("เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G หรือเลขที่ขึ้นต้นด้วย 0");return false;}
       if(!pii.houseNo||!pii.province||!pii.district||!pii.subdistrict||!/^\d{5}$/.test(pii.postalCode)){toast.warning("กรุณากรอกที่อยู่ตามทะเบียนบ้านให้ครบ");return false;}
-      if(!parseGuardianFullName(pii.guardianFullName)){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return false;}
+      const guardian=parseGuardianFullName(pii.guardianFullName);
+      if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return false;}
+      if(student&&isGuardianNameSameAsStudent(guardian.name,student.name)){toast.warning("ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง");return false;}
       if(!/^0(?:6|8|9)\d{8}$|^0(?:2|3|4|5|7)\d{7}$/.test(pii.guardianPhone)){toast.warning("กรุณากรอกเบอร์โทรศัพท์ผู้ปกครองให้ถูกต้อง");return false;}
       if(!privacy){toast.warning("กรุณารับทราบการใช้ข้อมูลส่วนบุคคล");return false;}
     }
@@ -135,8 +138,10 @@ export function StudentSurveyApp(){
   }
   function reset(){setStudent(null);setToken("");setDecision(null);setPhone("");setEmail("");setNdlpEmail("");setPii(blankPii);setPrivacy(false);setRegistration(null);setStudentCode("");}
   const input=(key:keyof Pii,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=>(
-    <label className="field"><span>{label}<b>*</b></span><input {...props} value={pii[key]} onChange={e=>setPii({...pii,[key]:e.target.value})}/></label>
+    <label className="field"><span>{label}<b>*</b></span><input {...props} value={pii[key]} onChange={e=>setPii(current=>({...current,[key]:e.target.value}))}/></label>
   );
+  const parsedGuardian=parseGuardianFullName(pii.guardianFullName);
+  const guardianMatchesStudent=Boolean(student&&parsedGuardian&&isGuardianNameSameAsStudent(parsedGuardian.name,student.name));
 
   if(registration){
     const approved=registration.approvalStatus==="APPROVED",rejected=registration.approvalStatus==="REJECTED",declined=registration.decision==="DECLINE";
@@ -194,25 +199,25 @@ export function StudentSurveyApp(){
       </section>
       <div className="form-grid two student-contact-grid">
         <label className="field"><span><FontAwesomeIcon icon={faPhone}/> เบอร์โทรศัพท์นักเรียน<b>*</b></span><input inputMode="tel" maxLength={10} placeholder="เช่น 0812345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,""))}/></label>
-        {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={15} placeholder="เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก" value={pii.citizenId} onChange={e=>setPii({...pii,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)})}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ ส่วนเด็กติด G และบุคคลไม่มีสัญชาติไทยรองรับตามเลขทะเบียนการศึกษา</small></label>}
+        {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={15} placeholder="เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก" value={pii.citizenId} onChange={e=>setPii(current=>({...current,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)}))}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ ส่วนเด็กติด G และบุคคลไม่มีสัญชาติไทยรองรับตามเลขทะเบียนการศึกษา</small></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมลโรงเรียน<b>*</b></span><input type="email" pattern={SCHOOL_EMAIL_PATTERN} title="ต้องใช้อีเมล @chomthong.ac.th" placeholder="name@chomthong.ac.th" value={email} onChange={e=>setEmail(e.target.value)}/></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมล NDLP<b>*</b></span><input type="email" pattern={NDLP_EMAIL_PATTERN} title="ต้องใช้อีเมล @ndlp.go.th" placeholder="name@ndlp.go.th" value={ndlpEmail} onChange={e=>setNdlpEmail(e.target.value)}/><small className="field-hint">หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา</small></label>}
       </div>
       {decision==="ACCEPT"&&<>
         <div className="form-heading"><span>2</span><div><h2>ข้อมูลผู้ปกครอง</h2><p>กรอกชื่อพร้อมคำนำหน้า ระบบจะแยกข้อมูลให้อัตโนมัติ</p></div></div>
         <div className="form-grid two">
-          <label className="field"><span>ชื่อ-นามสกุลผู้ปกครอง (รวมคำนำหน้า)<b>*</b></span><input value={pii.guardianFullName} aria-invalid={Boolean(pii.guardianFullName)&&!parseGuardianFullName(pii.guardianFullName)} placeholder="เช่น นางสาวสมใจ ใจดี" onChange={e=>setPii({...pii,guardianFullName:e.target.value})}/>{pii.guardianFullName&&(parseGuardianFullName(pii.guardianFullName)?<small className="field-hint guardian-prefix-valid">ตรวจพบคำนำหน้า {parseGuardianFullName(pii.guardianFullName)?.prefix}</small>:<small className="error">กรุณาขึ้นต้นด้วย นาย นาง หรือนางสาว และกรอกชื่อ-นามสกุลให้ครบ</small>)}</label>
+          <label className="field student-guardian-name"><span>ชื่อ-นามสกุลผู้ปกครอง (รวมคำนำหน้า)<b>*</b></span><input name="guardianFullName" autoComplete="section-guardian name" value={pii.guardianFullName} aria-invalid={Boolean(pii.guardianFullName)&&(!parsedGuardian||guardianMatchesStudent)} placeholder="เช่น นางสาวสมใจ ใจดี" onChange={e=>setPii(current=>({...current,guardianFullName:e.target.value}))}/>{pii.guardianFullName&&(guardianMatchesStudent?<small className="error">ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง</small>:parsedGuardian?<small className="field-hint guardian-prefix-valid">ตรวจพบคำนำหน้า {parsedGuardian.prefix}</small>:<small className="error">กรุณาขึ้นต้นด้วย นาย นาง หรือนางสาว และกรอกชื่อ-นามสกุลให้ครบ</small>)}</label>
           {input("guardianPhone","เบอร์โทรศัพท์ผู้ปกครอง",{inputMode:"tel",maxLength:10,placeholder:"เช่น 0812345678"})}
         </div>
         <div className="form-heading"><span>3</span><div><h2>ที่อยู่ตามทะเบียนบ้าน</h2><p>ข้อมูลจะปรากฏในเอกสาร AWAT-03</p></div></div>
         <div className="form-grid three">
           {input("houseNo","บ้านเลขที่",{placeholder:"เช่น 99/9"})}
-          <label className="field"><span>หมู่</span><input value={pii.moo} onChange={e=>setPii({...pii,moo:e.target.value})}/></label>
-          <label className="field"><span>ซอย</span><input value={pii.soi} onChange={e=>setPii({...pii,soi:e.target.value})}/></label>
-          <label className="field"><span>ถนน</span><input value={pii.road} onChange={e=>setPii({...pii,road:e.target.value})}/></label>
-          <label className="field"><span>จังหวัด<b>*</b></span><select value={pii.province} onChange={e=>setPii({...pii,province:e.target.value,district:"",subdistrict:"",postalCode:""})}><option value="">เลือกจังหวัด</option>{provinces.map(x=><option key={x}>{x}</option>)}</select></label>
-          <label className="field"><span>อำเภอ/เขต<b>*</b></span><select value={pii.district} disabled={!pii.province} onChange={e=>setPii({...pii,district:e.target.value,subdistrict:"",postalCode:""})}><option value="">เลือกอำเภอ</option>{districts.map(x=><option key={x}>{x}</option>)}</select></label>
-          <label className="field"><span>ตำบล/แขวง<b>*</b></span><select value={pii.subdistrict} disabled={!pii.district} onChange={e=>{const m=subdistricts.find(x=>x.subdistrict===e.target.value);setPii({...pii,subdistrict:e.target.value,postalCode:m?.postalCode||""});}}><option value="">เลือกตำบล</option>{subdistricts.map(x=><option key={x.subdistrict}>{x.subdistrict}</option>)}</select></label>
+          <label className="field"><span>หมู่</span><input value={pii.moo} onChange={e=>setPii(current=>({...current,moo:e.target.value}))}/></label>
+          <label className="field"><span>ซอย</span><input value={pii.soi} onChange={e=>setPii(current=>({...current,soi:e.target.value}))}/></label>
+          <label className="field"><span>ถนน</span><input value={pii.road} onChange={e=>setPii(current=>({...current,road:e.target.value}))}/></label>
+          <label className="field"><span>จังหวัด<b>*</b></span><select value={pii.province} onChange={e=>setPii(current=>({...current,province:e.target.value,district:"",subdistrict:"",postalCode:""}))}><option value="">เลือกจังหวัด</option>{provinces.map(x=><option key={x}>{x}</option>)}</select></label>
+          <label className="field"><span>อำเภอ/เขต<b>*</b></span><select value={pii.district} disabled={!pii.province} onChange={e=>setPii(current=>({...current,district:e.target.value,subdistrict:"",postalCode:""}))}><option value="">เลือกอำเภอ</option>{districts.map(x=><option key={x}>{x}</option>)}</select></label>
+          <label className="field"><span>ตำบล/แขวง<b>*</b></span><select value={pii.subdistrict} disabled={!pii.district} onChange={e=>{const m=subdistricts.find(x=>x.subdistrict===e.target.value);setPii(current=>({...current,subdistrict:e.target.value,postalCode:m?.postalCode||""}));}}><option value="">เลือกตำบล</option>{subdistricts.map(x=><option key={x.subdistrict}>{x.subdistrict}</option>)}</select></label>
           {input("postalCode","รหัสไปรษณีย์",{inputMode:"numeric",maxLength:5,readOnly:true})}
         </div>
         <label className="privacy-note student-privacy"><input type="checkbox" checked={privacy} onChange={e=>setPrivacy(e.target.checked)}/><FontAwesomeIcon icon={faLock}/><span>รับทราบว่าข้อมูลนี้ใช้เพื่อดำเนินโครงการและจัดทำเอกสาร AWAT-03 เท่านั้น</span></label>
@@ -220,6 +225,6 @@ export function StudentSurveyApp(){
       <div className="sticky-actions"><button className="button primary" onClick={()=>{if(validate())setConfirm(true);}}><FontAwesomeIcon icon={faCheck}/> ตรวจสอบและบันทึก</button></div>
     </section>}
 
-    {confirm&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setConfirm(false);}}><section className="modal" role="dialog" aria-modal="true"><div className="modal-icon"><FontAwesomeIcon icon={faUserGroup}/></div><h2>ยืนยันการลงทะเบียน</h2><p>{student?.name}<br/>เลือก <b>{decision==="ACCEPT"?"รับ iPad":"ไม่รับ iPad"}</b></p><div className="modal-actions"><button className="button primary" disabled={busy} onClick={submit}><FontAwesomeIcon icon={busy?faSpinner:faCheck} spin={busy}/> {busy?"กำลังบันทึก...":"ยืนยันบันทึก"}</button><button className="button secondary" disabled={busy} onClick={()=>setConfirm(false)}>ยกเลิก</button></div></section></div>}
+    {confirm&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setConfirm(false);}}><section className="modal" role="dialog" aria-modal="true"><div className="modal-icon"><FontAwesomeIcon icon={faUserGroup}/></div><h2>ยืนยันการลงทะเบียน</h2><div className="student-confirm-details"><span>นักเรียน</span><b>{student?.name}</b>{decision==="ACCEPT"&&<><span>ผู้ปกครอง</span><b>{pii.guardianFullName}</b></>}<span>ความประสงค์</span><b>{decision==="ACCEPT"?"รับ iPad":"ไม่รับ iPad"}</b></div>{decision==="ACCEPT"&&<p>กรุณาตรวจสอบชื่อผู้ปกครองให้ถูกต้องก่อนบันทึก</p>}<div className="modal-actions"><button className="button primary" disabled={busy} onClick={submit}><FontAwesomeIcon icon={busy?faSpinner:faCheck} spin={busy}/> {busy?"กำลังบันทึก...":"ยืนยันบันทึก"}</button><button className="button secondary" disabled={busy} onClick={()=>setConfirm(false)}>ยกเลิก</button></div></section></div>}
   </main>;
 }

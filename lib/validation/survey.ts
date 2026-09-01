@@ -62,7 +62,23 @@ export type TeacherProfile = z.infer<typeof teacherProfileSchema>;
 
 export function hasGuardianPrefixInName(value: string) {
   const normalized = value.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
-  return /^(?:นาย|นางสาว|นาง|น\s*\.?\s*ส\s*\.?)/.test(normalized);
+  return /^(?:เด็กชาย|เด็กหญิง|นาย|นางสาว|นาง|น\s*\.?\s*ส\s*\.?)/.test(normalized);
+}
+
+function normalizeComparedPersonName(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/^(?:เด็กชาย|เด็กหญิง|นาย|นางสาว|นาง)\s*/, "")
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("th-TH");
+}
+
+export function isGuardianNameSameAsStudent(guardianName: string, studentName: string) {
+  const guardian = normalizeComparedPersonName(guardianName);
+  const student = normalizeComparedPersonName(studentName);
+  return Boolean(guardian && student && guardian === student);
 }
 
 export function parseGuardianFullName(value: string): { prefix: typeof guardianPrefixOptions[number]; name: string } | null {
