@@ -40,7 +40,7 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, adminShell, packageJson, previewScript] = await Promise.all([
+  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, adminShell, adminUsers, adminUsersApi, packageJson, previewScript] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
@@ -50,6 +50,8 @@ test("ships responsive styles and the current registration experience", async ()
     readFile(new URL("app/api/admin/document-checkin/route.ts", root), "utf8"),
     readFile(new URL("migrations/0019_add_student_document_checkin.sql", root), "utf8"),
     readFile(new URL("components/admin/admin-shell.tsx", root), "utf8"),
+    readFile(new URL("components/admin/admin-users-manager.tsx", root), "utf8"),
+    readFile(new URL("app/api/admin/admin-users/route.ts", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("scripts/start-worker-preview.mjs", root), "utf8"),
   ]);
@@ -75,6 +77,9 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(documentCheckinApi, /CANCEL_STUDENT_DOCUMENT/);
   assert.match(documentMigration, /student_document_receipt_events/);
   assert.match(adminShell, /\/admin\/document-checkin/);
+  assert.match(adminUsers, /แก้ไขข้อมูลผู้ดูแลระบบ/);
+  assert.match(adminUsersApi, /export async function PATCH/);
+  assert.match(adminUsersApi, /UPDATE_ADMIN/);
   assert.match(packageJson, /start-worker-preview\.mjs/);
   assert.match(previewScript, /wrangler\.json/);
   assert.match(previewScript, /\.dev\.vars/);
