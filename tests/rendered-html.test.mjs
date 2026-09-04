@@ -40,12 +40,16 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, studentAdmin, packageJson, previewScript] = await Promise.all([
+  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, adminShell, packageJson, previewScript] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
     readFile(new URL("components/public/ipad-product-visual.tsx", root), "utf8"),
     readFile(new URL("components/admin/student-admin.tsx", root), "utf8"),
+    readFile(new URL("components/admin/document-checkin.tsx", root), "utf8"),
+    readFile(new URL("app/api/admin/document-checkin/route.ts", root), "utf8"),
+    readFile(new URL("migrations/0019_add_student_document_checkin.sql", root), "utf8"),
+    readFile(new URL("components/admin/admin-shell.tsx", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("scripts/start-worker-preview.mjs", root), "utf8"),
   ]);
@@ -62,6 +66,14 @@ test("ships responsive styles and the current registration experience", async ()
   assert.doesNotMatch(ipadVisual, /unoptimized/);
   assert.match(studentAdmin, /const visibleTotals = useMemo/);
   assert.match(studentAdmin, /void load\(\{ silent: true \}\)/);
+  assert.match(documentCheckin, /ตรวจรับเอกสารแบบรวดเร็ว/);
+  assert.match(documentCheckin, /ตรวจเอกสารรายห้อง/);
+  assert.match(documentCheckin, /ประวัติการตรวจรับเอกสาร/);
+  assert.match(documentCheckinApi, /requireAdminApi/);
+  assert.match(documentCheckinApi, /RECEIVE_STUDENT_DOCUMENT/);
+  assert.match(documentCheckinApi, /CANCEL_STUDENT_DOCUMENT/);
+  assert.match(documentMigration, /student_document_receipt_events/);
+  assert.match(adminShell, /\/admin\/document-checkin/);
   assert.match(packageJson, /start-worker-preview\.mjs/);
   assert.match(previewScript, /wrangler\.json/);
   assert.match(previewScript, /\.dev\.vars/);
