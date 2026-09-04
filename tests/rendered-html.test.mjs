@@ -67,6 +67,7 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(studentAdmin, /const visibleTotals = useMemo/);
   assert.match(studentAdmin, /void load\(\{ silent: true \}\)/);
   assert.match(documentCheckin, /ตรวจรับเอกสารแบบรวดเร็ว/);
+  assert.match(documentCheckin, /กดอีกครั้งเพื่อยืนยันรับเอกสาร/);
   assert.match(documentCheckin, /ตรวจเอกสารรายห้อง/);
   assert.match(documentCheckin, /ประวัติการตรวจรับเอกสาร/);
   assert.match(documentCheckinApi, /requireAdminApi/);

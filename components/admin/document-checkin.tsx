@@ -82,6 +82,12 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
   const historyPages = Math.max(1, Math.ceil(historyTotal / PAGE_SIZE));
   const pendingOnPage = rows.filter((row) => text(row.document_status) !== "RECEIVED").map((row) => text(row.student_id));
   const allPendingSelected = pendingOnPage.length > 0 && pendingOnPage.every((studentId) => selectedIds.includes(studentId));
+  const quickReadyToReceive = Boolean(
+    quickStudent
+    && text(quickStudent.student_code) === studentCode.trim()
+    && quickStudent.eligible !== false
+    && text(quickStudent.document_status) !== "RECEIVED",
+  );
 
   function filterParams(mode: "list" | "history") {
     const params = new URLSearchParams({ mode, page: String(page) });
@@ -155,8 +161,13 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
 
   async function lookup(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     const code = studentCode.trim();
     if (!code) { toast.warning("กรุณากรอกเลขประจำตัวนักเรียน"); return; }
+    if (quickReadyToReceive && quickStudent) {
+      await receive([text(quickStudent.student_id)], true);
+      return;
+    }
     setBusy(true);
     setQuickStudent(null);
     try {
@@ -258,16 +269,16 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
           <div className="document-quick-layout">
             <div className="document-quick-entry">
               <span className="document-quick-icon"><FontAwesomeIcon icon={faMagnifyingGlass}/></span>
-              <div><h2>ตรวจรับเอกสารแบบรวดเร็ว</h2><p>กรอกเลขประจำตัวนักเรียนแล้วกด Enter</p></div>
+              <div><h2>ตรวจรับเอกสารแบบรวดเร็ว</h2><p>{quickReadyToReceive ? "ตรวจสอบชื่อแล้วกด Enter อีกครั้งเพื่อยืนยัน" : "กรอกเลขประจำตัวแล้วกด Enter เพื่อค้นหา"}</p></div>
               <form onSubmit={lookup}>
-                <label className="field"><span>เลขประจำตัวนักเรียน</span><input ref={codeInput} autoFocus inputMode="numeric" autoComplete="off" value={studentCode} onChange={(event) => setStudentCode(event.target.value)} placeholder="เช่น 23964"/></label>
-                <button className="button primary" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : faMagnifyingGlass} spin={busy}/> ตรวจสอบ</button>
+                <label className="field"><span>เลขประจำตัวนักเรียน</span><input ref={codeInput} autoFocus inputMode="numeric" autoComplete="off" value={studentCode} onChange={(event) => { const nextCode = event.target.value; setStudentCode(nextCode); if (quickStudent && text(quickStudent.student_code) !== nextCode.trim()) setQuickStudent(null); }} placeholder="เช่น 23964"/></label>
+                <button className="button primary" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : quickReadyToReceive ? faCheck : faMagnifyingGlass} spin={busy}/> {busy ? "กำลังดำเนินการ..." : quickReadyToReceive ? "ยืนยันรับเอกสาร" : "ตรวจสอบ"}</button>
               </form>
             </div>
             <div className={`document-quick-result${quickStudent ? " has-result" : ""}`}>
               {!quickStudent ? <div className="document-quick-empty"><FontAwesomeIcon icon={faFileCircleCheck}/><b>รอกรอกเลขประจำตัวนักเรียน</b><span>ระบบจะแสดงชื่อ ชั้น ห้อง และสถานะเอกสารก่อนบันทึก</span></div> : <>
                 <header><div><small>ข้อมูลนักเรียน</small><h3><StudentName row={quickStudent}/></h3><p>{text(quickStudent.grade_level)}/{text(quickStudent.room)}{quickStudent.class_number ? ` เลขที่ ${text(quickStudent.class_number)}` : ""} · รหัส {text(quickStudent.student_code)}</p></div><DocumentStatus row={quickStudent}/></header>
-                {quickStudent.eligible === false ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.eligibilityReason)}</span></div> : text(quickStudent.document_status) === "RECEIVED" ? <div className="document-received-detail"><span>รับเมื่อ <b>{formatDateTime(quickStudent.received_at)}</b></span><span>ผู้รับเอกสาร <b>{text(quickStudent.received_by_name) || "ผู้ดูแลระบบ"}</b></span>{canCancel && <button type="button" className="button danger-outline" disabled={busy} onClick={() => setCancelTarget(quickStudent)}><FontAwesomeIcon icon={faXmark}/> ยกเลิกสถานะ</button>}</div> : <button type="button" className="button primary document-receive-button" disabled={busy} onClick={() => void receive([text(quickStudent.student_id)], true)}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> บันทึกรับเอกสารแล้ว</button>}
+                {quickStudent.eligible === false ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.eligibilityReason)}</span></div> : text(quickStudent.document_status) === "RECEIVED" ? <div className="document-received-detail"><span>รับเมื่อ <b>{formatDateTime(quickStudent.received_at)}</b></span><span>ผู้รับเอกสาร <b>{text(quickStudent.received_by_name) || "ผู้ดูแลระบบ"}</b></span>{canCancel && <button type="button" className="button danger-outline" disabled={busy} onClick={() => setCancelTarget(quickStudent)}><FontAwesomeIcon icon={faXmark}/> ยกเลิกสถานะ</button>}</div> : <><div className="document-enter-hint"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันรับเอกสาร</span></div><button type="button" className="button primary document-receive-button" disabled={busy} onClick={() => void receive([text(quickStudent.student_id)], true)}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> บันทึกรับเอกสารแล้ว</button></>}
               </>}
             </div>
           </div>
