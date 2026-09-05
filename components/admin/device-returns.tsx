@@ -179,7 +179,7 @@ export function DeviceReturns() {
         </div>
         {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin /> กำลังโหลดข้อมูล...</div> : filteredActive.length ? (
           <div className="admin-table-wrap"><table className="admin-table device-return-table"><thead><tr><th>ผู้ถือเครื่อง</th><th>ประเภท</th><th>กลุ่ม / ชั้นเรียน</th><th>Serial Number</th><th>สถานะการรับ</th><th>วันที่จัดสรร</th><th>จัดการ</th></tr></thead><tbody>
-            {filteredActive.map((row) => <tr key={text(row.assignment_id)}><td><b>{text(row.holder_name)}</b><small>{text(row.holder_code) || "ไม่ระบุรหัส"}</small></td><td><HolderType value={text(row.holder_type)} /></td><td>{text(row.holder_context) || "—"}</td><td><code>{text(row.serial_number) || "ยังไม่ระบุ"}</code></td><td><PickupStatus value={text(row.pickup_status)} holderType={text(row.holder_type)}/></td><td>{formatDate(row.assigned_at)}</td><td><button className="button return-device-button" type="button" onClick={() => setSelected(row)}><FontAwesomeIcon icon={faArrowRotateLeft} /> รับคืน</button></td></tr>)}
+            {filteredActive.map((row) => <tr key={text(row.assignment_id)}><td><b>{text(row.holder_name)}</b><small>{text(row.holder_code) || "ไม่ระบุรหัส"}</small></td><td><HolderType value={text(row.holder_type)} /></td><td>{text(row.holder_context) || "—"}</td><td><code>{text(row.serial_number) || "ยังไม่ระบุ"}</code></td><td><PickupStatus value={text(row.pickup_status)} holderType={text(row.holder_type)}/>{text(row.holder_type) === "STUDENT" && <small>{recipientLabel(row)}</small>}</td><td>{formatDate(row.assigned_at)}</td><td><button className="button return-device-button" type="button" onClick={() => setSelected(row)}><FontAwesomeIcon icon={faArrowRotateLeft} /> รับคืน</button></td></tr>)}
           </tbody></table></div>
         ) : <div className="device-return-empty"><FontAwesomeIcon icon={faCircleCheck} /><h3>ไม่พบเครื่องที่รอรับคืน</h3><p>{search || audience ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "ยังไม่มีรายการจัดสรรอุปกรณ์ปัจจุบัน"}</p></div>}
         </> : <>
@@ -219,4 +219,11 @@ function Condition({ value }: { value: string }) {
 function PickupStatus({ value, holderType }: { value: string; holderType: string }) {
   const confirmed = holderType === "TEACHER" || value === "CONFIRMED";
   return <span className={`pickup-status ${confirmed ? "confirmed" : "unverified"}`}><FontAwesomeIcon icon={confirmed ? faCircleCheck : faTriangleExclamation}/>{confirmed ? "ยืนยันรับแล้ว" : "ข้อมูลเดิม—ยังไม่ยืนยัน"}</span>;
+}
+
+function recipientLabel(row: Row) {
+  const type = text(row.recipient_type);
+  if (type === "GUARDIAN") return `ผู้ปกครอง: ${text(row.recipient_name) || "ไม่ระบุชื่อ"}`;
+  if (type === "OTHER") return `ผู้รับแทน: ${text(row.recipient_name) || "ไม่ระบุชื่อ"}`;
+  return "นักเรียนรับเอง";
 }

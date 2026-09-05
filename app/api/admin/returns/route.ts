@@ -27,6 +27,9 @@ type Assignment = {
   accessories: string | null;
   assignment_note: string | null;
   handover_status?: string | null;
+  handed_over_at?: string | null;
+  recipient_type?: string | null;
+  recipient_name?: string | null;
 };
 
 export async function GET(request: Request) {
@@ -38,7 +41,8 @@ export async function GET(request: Request) {
         t.prefix || t.first_name || ' ' || t.last_name AS holder_name,
         t.teacher_code AS holder_code,a.name AS holder_context,d.serial_number,d.asset_number,
         d.device_identifier,d.accessories,d.note AS assignment_note,'CONFIRMED' AS pickup_status,
-        COALESCE(d.assigned_at,d.created_at) AS assigned_at
+        COALESCE(d.assigned_at,d.created_at) AS assigned_at,
+        NULL AS recipient_type,NULL AS recipient_name
       FROM device_assignments d
       JOIN teachers t ON t.id=d.teacher_id
       LEFT JOIN learning_areas a ON a.id=t.learning_area_id
@@ -47,12 +51,12 @@ export async function GET(request: Request) {
         s.prefix || s.first_name || ' ' || s.last_name AS holder_name,
         s.student_code AS holder_code,s.grade_level || '/' || s.room AS holder_context,
         d.serial_number,d.asset_number,d.device_identifier,d.accessories,d.note AS assignment_note,
-        CASE WHEN h.status='ACTIVE' THEN 'CONFIRMED' ELSE 'UNVERIFIED' END AS pickup_status,
-        COALESCE(d.assigned_at,d.created_at) AS assigned_at
-      FROM student_device_assignments d
-      JOIN students s ON s.id=d.student_id
-      LEFT JOIN student_device_handovers h ON h.student_id=s.id
-      WHERE h.status='ACTIVE' OR h.student_id IS NULL
+        'CONFIRMED' AS pickup_status,h.handed_over_at AS assigned_at,
+        h.recipient_type,h.recipient_name
+      FROM student_device_handovers h
+      JOIN students s ON s.id=h.student_id
+      JOIN student_device_assignments d ON d.id=h.assignment_id AND d.student_id=h.student_id
+      WHERE h.status='ACTIVE'
     ) ORDER BY assigned_at DESC,holder_name`).all();
     const history = await db.prepare(`SELECT h.*,a.display_name AS processed_by_name
       FROM device_return_history h
@@ -83,10 +87,11 @@ export async function POST(request: Request) {
           s.prefix || s.first_name || ' ' || s.last_name AS holder_name,
           s.student_code AS holder_code,s.grade_level || '/' || s.room AS holder_context,
           d.serial_number,d.asset_number,d.device_identifier,d.accessories,d.note AS assignment_note,
-          h.status AS handover_status
-        FROM student_device_assignments d JOIN students s ON s.id=d.student_id
-        LEFT JOIN student_device_handovers h ON h.student_id=s.id
-        WHERE d.id=? AND (h.status='ACTIVE' OR h.student_id IS NULL)`)
+          h.status AS handover_status,h.handed_over_at,h.recipient_type,h.recipient_name
+        FROM student_device_handovers h
+        JOIN students s ON s.id=h.student_id
+        JOIN student_device_assignments d ON d.id=h.assignment_id AND d.student_id=h.student_id
+        WHERE d.id=? AND h.status='ACTIVE'`)
           .bind(input.assignmentId).first<Assignment>();
     if (!assignment) return json({ error: "ไม่พบรายการจัดสรร หรือเครื่องนี้ถูกรับคืนแล้ว" }, 404);
 
@@ -104,21 +109,9 @@ export async function POST(request: Request) {
       ? db.prepare("DELETE FROM device_assignments WHERE id=?").bind(input.assignmentId)
       : db.prepare("DELETE FROM student_device_assignments WHERE id=?").bind(input.assignmentId);
     if (input.holderType === "STUDENT") {
-      const handover = assignment.handover_status === "ACTIVE"
-        ? db.prepare(`UPDATE student_device_handovers SET status='RETURNED',returned_at=?,returned_by=?,
-            return_history_id=?,updated_at=? WHERE student_id=? AND status='ACTIVE'`)
-            .bind(stamp,admin.id,historyId,stamp,assignment.holder_id)
-        : db.prepare(`INSERT INTO student_device_handovers
-            (student_id,assignment_id,status,recipient_type,recipient_name,serial_number,asset_number,
-             handed_over_at,handed_over_by,returned_at,returned_by,return_history_id,note,updated_at)
-            VALUES (?,?,'RETURNED',NULL,NULL,?,?,NULL,NULL,?,?,?,NULL,?)
-            ON CONFLICT(student_id) DO UPDATE SET assignment_id=excluded.assignment_id,status='RETURNED',
-              serial_number=excluded.serial_number,asset_number=excluded.asset_number,
-              returned_at=excluded.returned_at,returned_by=excluded.returned_by,
-              return_history_id=excluded.return_history_id,updated_at=excluded.updated_at
-            WHERE student_device_handovers.status!='ACTIVE'`)
-            .bind(assignment.holder_id,input.assignmentId,assignment.serial_number,assignment.asset_number,
-              input.returnedAt,admin.id,historyId,stamp);
+      const handover = db.prepare(`UPDATE student_device_handovers SET status='RETURNED',returned_at=?,returned_by=?,
+          return_history_id=?,updated_at=? WHERE student_id=? AND assignment_id=? AND status='ACTIVE'`)
+          .bind(input.returnedAt,admin.id,historyId,stamp,assignment.holder_id,input.assignmentId);
       const handoverEvent = db.prepare(`INSERT INTO student_device_handover_events
           (id,student_id,assignment_id,action,recipient_type,recipient_name,serial_number,asset_number,note,processed_by,created_at)
           VALUES (?,?,?,'RETURN',NULL,NULL,?,?,?,?,?)`).bind(

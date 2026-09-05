@@ -86,6 +86,8 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(handoversApi, /r\.approval_status='APPROVED'/);
   assert.match(handoversMigration, /student_device_handover_events/);
   assert.match(returnsApi, /student_device_handovers/);
+  assert.match(returnsApi, /WHERE h\.status='ACTIVE'/);
+  assert.doesNotMatch(returnsApi, /h\.status='ACTIVE' OR h\.student_id IS NULL/);
   assert.match(returnsApi, /'RETURN'/);
   assert.match(adminShell, /\/admin\/document-checkin/);
   assert.match(adminShell, /\/admin\/device-handovers/);
