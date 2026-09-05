@@ -43,6 +43,11 @@ async function renumberStudentClasses(db: StudentDatabase) {
   }
 }
 
+async function hasActiveDeviceHandover(db: StudentDatabase, studentId?: string) {
+  if (!studentId) return false;
+  return Boolean(await db.prepare("SELECT student_id FROM student_device_handovers WHERE student_id=? AND status='ACTIVE'").bind(studentId).first());
+}
+
 export async function GET(request: Request) {
   try {
     await requireAdminApi(request);
@@ -112,6 +117,8 @@ export async function POST(request: Request) {
     const data = input.data ?? {};
 
     if (input.action === "save") {
+      if (input.id && data.isActive === false && await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "ปิดใช้งานนักเรียนไม่ได้ เนื่องจากยังถือเครื่องอยู่ กรุณารับคืนเครื่องก่อน" }, 409);
       const studentId = input.id ?? id();
       const studentCode = clean(data.studentCode, 30);
       const prefix = clean(data.prefix, 20);
@@ -143,6 +150,8 @@ export async function POST(request: Request) {
 
     if (input.action === "save-detail") {
       if (!input.id) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 400);
+      if (data.isActive === false && await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "ปิดใช้งานนักเรียนไม่ได้ เนื่องจากยังถือเครื่องอยู่ กรุณารับคืนเครื่องก่อน" }, 409);
       const studentCode = clean(data.studentCode,30), prefix = clean(data.prefix,20), firstName = clean(data.firstName,100), lastName = clean(data.lastName,100), gradeLevel = normalizeStudentGrade(clean(data.gradeLevel,30)), room = normalizeStudentRoom(clean(data.room,20)), birthDate = clean(data.birthDate,10), phone = clean(data.phone,20), email = clean(data.email,180), ndlpEmail = clean(data.ndlpEmail,180);
       if (!studentCode || !prefix || !firstName || !lastName || !studentGradeOptions.includes(gradeLevel as typeof studentGradeOptions[number]) || !studentRoomOptions.includes(room) || (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)))
         return json({ error: "กรุณากรอกข้อมูลนักเรียนให้ครบ" }, 400);
@@ -180,6 +189,8 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "delete") {
+      if (await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "ลบนักเรียนไม่ได้ เนื่องจากยังถือเครื่องอยู่ กรุณารับคืนเครื่องก่อน" }, 409);
       const response = await db.prepare("SELECT id FROM student_survey_responses WHERE student_id=?").bind(input.id).first();
       if (response) await db.prepare("UPDATE students SET is_active=0,updated_at=? WHERE id=?").bind(stamp,input.id).run();
       else await db.prepare("DELETE FROM students WHERE id=?").bind(input.id).run();
@@ -190,6 +201,8 @@ export async function POST(request: Request) {
 
     if (input.action === "approve" || input.action === "reject") {
       if (!input.id) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 400);
+      if (input.action === "reject" && await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "ไม่อนุมัติรายการไม่ได้ เนื่องจากนักเรียนรับเครื่องแล้ว กรุณารับคืนเครื่องก่อน" }, 409);
       const response = await db.prepare(`SELECT r.id,s.prefix,s.first_name,s.last_name
         FROM student_survey_responses r JOIN students s ON s.id=r.student_id
         WHERE r.student_id=? AND r.decision='ACCEPT' AND r.public_locked=1`)
@@ -224,6 +237,8 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "reset") {
+      if (await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "เปิดลงทะเบียนใหม่ไม่ได้ เนื่องจากนักเรียนยังถือเครื่องอยู่ กรุณารับคืนเครื่องก่อน" }, 409);
       await db.batch([
         db.prepare("DELETE FROM student_device_assignments WHERE student_id=?").bind(input.id),
         db.prepare("DELETE FROM student_survey_responses WHERE student_id=?").bind(input.id),
@@ -233,6 +248,8 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "reopen") {
+      if (await hasActiveDeviceHandover(db,input.id))
+        return json({ error: "เปิดให้แก้ไขไม่ได้ เนื่องจากนักเรียนยังถือเครื่องอยู่ กรุณารับคืนเครื่องก่อน" }, 409);
       await db.prepare(`UPDATE student_survey_responses SET public_locked=0,approval_status='PENDING',approved_at=NULL,
         approved_by=NULL,approval_note=NULL,updated_at=?,updated_by_admin_id=? WHERE student_id=?`)
         .bind(stamp,admin.id,input.id).run();

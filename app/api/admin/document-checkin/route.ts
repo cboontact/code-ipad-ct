@@ -191,6 +191,9 @@ export async function POST(request: Request) {
     const stamp = now();
 
     if (input.action === "cancel") {
+      const activeHandover = await db.prepare("SELECT student_id FROM student_device_handovers WHERE student_id=? AND status='ACTIVE'")
+        .bind(input.studentId).first();
+      if (activeHandover) return json({ error: "ยกเลิกการรับเอกสารไม่ได้ เนื่องจากนักเรียนรับเครื่องแล้ว กรุณารับคืนเครื่องก่อน" }, 409);
       const current = await db.prepare(`SELECT dr.student_id,s.student_code
         FROM student_document_receipts dr JOIN students s ON s.id=dr.student_id
         WHERE dr.student_id=? AND dr.document_type=? AND dr.status='RECEIVED'`)
