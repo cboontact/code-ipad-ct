@@ -25,6 +25,10 @@ async function teacherQuotaError(db: D1Database, teacherId: string | undefined) 
     ? "iPad สำหรับครูและบุคลากรมีผู้ลงทะเบียนรับครบตามจำนวนแล้ว"
     : null;
 }
+async function hasActiveTeacherHandover(db: D1Database, teacherId: string | undefined) {
+  if (!teacherId) return false;
+  return Boolean(await db.prepare("SELECT teacher_id FROM teacher_device_handovers WHERE teacher_id=? AND status='ACTIVE'").bind(teacherId).first());
+}
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request); const admin = await requireAdminApi(request), input = base.parse(await request.json()), db = await ensureDatabase(), stamp = now(), data = input.data ?? {};
@@ -56,16 +60,19 @@ export async function POST(request: Request) {
       await audit(db,admin.id,input.id?"EDIT_TEACHER":"CREATE_TEACHER","teacher",teacherId,`${input.id?"แก้ไข":"เพิ่ม"}ครู ${prefix}${first} ${last}`); return json({ success:true,id:teacherId });
     }
     if (input.action === "delete-teacher") {
+      if (await hasActiveTeacherHandover(db,input.id)) return json({error:"ไม่สามารถลบหรือปิดใช้งานครูที่ยังถือเครื่องอยู่ กรุณารับคืน iPad ก่อน"},409);
       const response = await db.prepare("SELECT id FROM survey_responses WHERE teacher_id=?").bind(input.id).first();
       const advisor = await db.prepare("SELECT id FROM class_advisors WHERE teacher_id=? LIMIT 1").bind(input.id).first();
       if (response || advisor) await db.prepare("UPDATE teachers SET is_active=0,updated_at=? WHERE id=?").bind(stamp,input.id).run(); else await db.prepare("DELETE FROM teachers WHERE id=?").bind(input.id).run();
       await audit(db,admin.id,"DELETE_TEACHER","teacher",input.id??null,"ลบหรือปิดใช้งานครู"); return json({success:true});
     }
     if (input.action === "reset-survey") {
+      if (await hasActiveTeacherHandover(db,input.id)) return json({error:"ไม่สามารถเปิดลงทะเบียนใหม่ได้ เนื่องจากครูยังถือเครื่องอยู่ กรุณารับคืน iPad ก่อน"},409);
       await db.batch([db.prepare("DELETE FROM device_assignments WHERE teacher_id=?").bind(input.id),db.prepare("DELETE FROM survey_responses WHERE teacher_id=?").bind(input.id)]);
       await audit(db,admin.id,"RESET_SURVEY","teacher",input.id??null,"เปิดให้ครูลงทะเบียนใหม่"); return json({success:true});
     }
     if (input.action === "reopen-survey") {
+      if (await hasActiveTeacherHandover(db,input.id)) return json({error:"ไม่สามารถเปิดแก้ไขการลงทะเบียนได้ เนื่องจากครูยังถือเครื่องอยู่ กรุณารับคืน iPad ก่อน"},409);
       await db.prepare("UPDATE survey_responses SET public_locked=0,updated_at=?,updated_by_admin_id=? WHERE teacher_id=?").bind(stamp,admin.id,input.id).run();
       await audit(db,admin.id,"REOPEN_SURVEY","teacher",input.id??null,"เปิดให้ครูแก้ไขคำตอบหนึ่งครั้ง"); return json({success:true});
     }

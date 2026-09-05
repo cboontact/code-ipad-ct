@@ -41,11 +41,13 @@ export async function GET(request: Request) {
         t.prefix || t.first_name || ' ' || t.last_name AS holder_name,
         t.teacher_code AS holder_code,a.name AS holder_context,d.serial_number,d.asset_number,
         d.device_identifier,d.accessories,d.note AS assignment_note,'CONFIRMED' AS pickup_status,
-        COALESCE(d.assigned_at,d.created_at) AS assigned_at,
+        h.handed_over_at AS assigned_at,
         NULL AS recipient_type,NULL AS recipient_name
-      FROM device_assignments d
-      JOIN teachers t ON t.id=d.teacher_id
+      FROM teacher_device_handovers h
+      JOIN teachers t ON t.id=h.teacher_id
+      JOIN device_assignments d ON d.id=h.assignment_id AND d.teacher_id=h.teacher_id
       LEFT JOIN learning_areas a ON a.id=t.learning_area_id
+      WHERE h.status='ACTIVE'
       UNION ALL
       SELECT 'STUDENT' AS holder_type,d.id AS assignment_id,s.id AS holder_id,
         s.prefix || s.first_name || ' ' || s.last_name AS holder_name,
@@ -79,9 +81,11 @@ export async function POST(request: Request) {
       ? await db.prepare(`SELECT d.id AS assignment_id,t.id AS holder_id,
           t.prefix || t.first_name || ' ' || t.last_name AS holder_name,
           t.teacher_code AS holder_code,a.name AS holder_context,d.serial_number,d.asset_number,
-          d.device_identifier,d.accessories,d.note AS assignment_note
-        FROM device_assignments d JOIN teachers t ON t.id=d.teacher_id
-        LEFT JOIN learning_areas a ON a.id=t.learning_area_id WHERE d.id=?`)
+          d.device_identifier,d.accessories,d.note AS assignment_note,
+          h.status AS handover_status,h.handed_over_at
+        FROM teacher_device_handovers h JOIN teachers t ON t.id=h.teacher_id
+        JOIN device_assignments d ON d.id=h.assignment_id AND d.teacher_id=h.teacher_id
+        LEFT JOIN learning_areas a ON a.id=t.learning_area_id WHERE d.id=? AND h.status='ACTIVE'`)
           .bind(input.assignmentId).first<Assignment>()
       : await db.prepare(`SELECT d.id AS assignment_id,s.id AS holder_id,
           s.prefix || s.first_name || ' ' || s.last_name AS holder_name,
@@ -120,7 +124,14 @@ export async function POST(request: Request) {
           );
       await db.batch([insert,handover,handoverEvent,remove]);
     } else {
-      await db.batch([insert,remove]);
+      const handover = db.prepare(`UPDATE teacher_device_handovers SET status='RETURNED',returned_at=?,returned_by=?,
+          return_history_id=?,updated_at=? WHERE teacher_id=? AND assignment_id=? AND status='ACTIVE'`)
+          .bind(input.returnedAt,admin.id,historyId,stamp,assignment.holder_id,input.assignmentId);
+      const handoverEvent = db.prepare(`INSERT INTO teacher_device_handover_events
+          (id,teacher_id,assignment_id,action,serial_number,asset_number,note,processed_by,created_at)
+          VALUES (?,?,?,'RETURN',?,?,?,?,?)`).bind(id(),assignment.holder_id,input.assignmentId,
+            assignment.serial_number,assignment.asset_number,input.note||null,admin.id,stamp);
+      await db.batch([insert,handover,handoverEvent,remove]);
     }
     await audit(db,admin.id,"RETURN_DEVICE","device_return",historyId,
       `รับคืน iPad จาก${input.holderType === "TEACHER" ? "ครู" : "นักเรียน"} ${assignment.holder_name} Serial Number ${assignment.serial_number || "ไม่ระบุ"}`,

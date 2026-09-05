@@ -40,7 +40,7 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, handovers, handoversApi, handoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript] = await Promise.all([
+  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
@@ -52,6 +52,9 @@ test("ships responsive styles and the current registration experience", async ()
     readFile(new URL("components/admin/device-handovers.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/device-handovers/route.ts", root), "utf8"),
     readFile(new URL("migrations/0020_add_student_device_handovers.sql", root), "utf8"),
+    readFile(new URL("components/admin/teacher-device-handovers.tsx", root), "utf8"),
+    readFile(new URL("app/api/admin/teacher-device-handovers/route.ts", root), "utf8"),
+    readFile(new URL("migrations/0021_add_teacher_device_handovers.sql", root), "utf8"),
     readFile(new URL("app/api/admin/returns/route.ts", root), "utf8"),
     readFile(new URL("components/admin/admin-shell.tsx", root), "utf8"),
     readFile(new URL("components/admin/admin-users-manager.tsx", root), "utf8"),
@@ -85,12 +88,18 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);
   assert.match(handoversApi, /r\.approval_status='APPROVED'/);
   assert.match(handoversMigration, /student_device_handover_events/);
+  assert.match(teacherHandovers, /สถานะการรับเครื่องครู/);
+  assert.match(teacherHandovers, /กด Enter อีกครั้งเพื่อยืนยัน/);
+  assert.match(teacherHandoversApi, /TEACHER_DEVICE_HANDOVER/);
+  assert.match(teacherHandoversMigration, /teacher_device_handover_events/);
   assert.match(returnsApi, /student_device_handovers/);
+  assert.match(returnsApi, /teacher_device_handovers/);
   assert.match(returnsApi, /WHERE h\.status='ACTIVE'/);
   assert.doesNotMatch(returnsApi, /h\.status='ACTIVE' OR h\.student_id IS NULL/);
   assert.match(returnsApi, /'RETURN'/);
   assert.match(adminShell, /\/admin\/document-checkin/);
   assert.match(adminShell, /\/admin\/device-handovers/);
+  assert.match(adminShell, /\/admin\/teacher-device-handovers/);
   assert.match(adminUsers, /แก้ไขข้อมูลผู้ดูแลระบบ/);
   assert.match(adminUsersApi, /export async function PATCH/);
   assert.match(adminUsersApi, /UPDATE_ADMIN/);
