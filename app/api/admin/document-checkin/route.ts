@@ -18,7 +18,7 @@ const receiveSchema = z.object({
 
 const cancelSchema = z.object({
   action: z.literal("cancel"),
-  studentId: z.string().uuid(),
+  studentIds: z.array(z.string().uuid()).min(1).max(PAGE_SIZE),
   reason: z.string().trim().min(3, "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร").max(500),
 });
 
@@ -191,27 +191,32 @@ export async function POST(request: Request) {
     const stamp = now();
 
     if (input.action === "cancel") {
-      const activeHandover = await db.prepare("SELECT student_id FROM student_device_handovers WHERE student_id=? AND status='ACTIVE'")
-        .bind(input.studentId).first();
-      if (activeHandover) return json({ error: "ยกเลิกการรับเอกสารไม่ได้ เนื่องจากนักเรียนรับเครื่องแล้ว กรุณารับคืนเครื่องก่อน" }, 409);
+      const studentIds = [...new Set(input.studentIds)];
+      const placeholders = studentIds.map(() => "?").join(",");
+      const activeHandovers = await db.prepare(`SELECT student_id FROM student_device_handovers
+        WHERE status='ACTIVE' AND student_id IN (${placeholders})`).bind(...studentIds).all();
+      if ((activeHandovers.results?.length ?? 0) > 0)
+        return json({ error: `ยกเลิกไม่ได้ มีนักเรียนรับเครื่องแล้ว ${(activeHandovers.results?.length ?? 0).toLocaleString("th-TH")} ราย กรุณารับคืนเครื่องก่อน` }, 409);
       const current = await db.prepare(`SELECT dr.student_id,s.student_code
         FROM student_document_receipts dr JOIN students s ON s.id=dr.student_id
-        WHERE dr.student_id=? AND dr.document_type=? AND dr.status='RECEIVED'`)
-        .bind(input.studentId, DOCUMENT_TYPE).first<{ student_id: string; student_code: string }>();
-      if (!current) return json({ error: "รายการนี้ยังไม่มีสถานะรับเอกสาร หรือถูกยกเลิกแล้ว" }, 409);
-      const update = await db.prepare(`UPDATE student_document_receipts
-        SET status='CANCELLED',updated_at=?
-        WHERE student_id=? AND document_type=? AND status='RECEIVED'`)
-        .bind(stamp, input.studentId, DOCUMENT_TYPE).run();
-      if ((update.meta.changes ?? 0) === 0) return json({ error: "สถานะเอกสารถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว" }, 409);
-      await db.prepare(`INSERT INTO student_document_receipt_events
-        (id,student_id,document_type,action,note,processed_by,created_at)
-        VALUES (?,?,?,?,?,?,?)`).bind(
-          id(), input.studentId, DOCUMENT_TYPE, "CANCEL", input.reason, admin.id, stamp,
-        ).run();
-      await audit(db, admin.id, "CANCEL_STUDENT_DOCUMENT", "student_document_receipt", input.studentId,
-        `ยกเลิกการรับเอกสาร AWAT-03 รหัสนักเรียน ${current.student_code}: ${input.reason}`);
-      return json({ success: true, cancelled: 1 });
+        WHERE dr.student_id IN (${placeholders}) AND dr.document_type=? AND dr.status='RECEIVED'`)
+        .bind(...studentIds, DOCUMENT_TYPE).all<{ student_id: string; student_code: string }>();
+      if ((current.results?.length ?? 0) !== studentIds.length)
+        return json({ error: "มีบางรายการถูกยกเลิกไปแล้ว กรุณาโหลดข้อมูลใหม่แล้วเลือกอีกครั้ง" }, 409);
+      const updates = await db.batch((current.results ?? []).map((student) => db.prepare(`UPDATE student_document_receipts
+        SET status='CANCELLED',updated_at=? WHERE student_id=? AND document_type=? AND status='RECEIVED'`)
+        .bind(stamp, student.student_id, DOCUMENT_TYPE)));
+      const cancelled = (current.results ?? []).filter((_, index) => Number(updates[index]?.meta.changes ?? 0) > 0);
+      if (!cancelled.length) return json({ error: "สถานะเอกสารถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว" }, 409);
+      await db.batch(cancelled.map((student) => db.prepare(`INSERT INTO student_document_receipt_events
+        (id,student_id,document_type,action,note,processed_by,created_at) VALUES (?,?,?,'CANCEL',?,?,?)`)
+        .bind(id(), student.student_id, DOCUMENT_TYPE, input.reason, admin.id, stamp)));
+      await audit(db, admin.id, "CANCEL_STUDENT_DOCUMENT", "student_document_receipt",
+        cancelled.length === 1 ? cancelled[0].student_id : null,
+        cancelled.length === 1
+          ? `ยกเลิกการรับเอกสาร AWAT-03 รหัสนักเรียน ${cancelled[0].student_code}: ${input.reason}`
+          : `ยกเลิกการรับเอกสาร AWAT-03 จำนวน ${cancelled.length} ราย: ${input.reason}`);
+      return json({ success: true, cancelled: cancelled.length });
     }
 
     const studentIds = [...new Set(input.studentIds)];

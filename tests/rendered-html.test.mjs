@@ -79,6 +79,9 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(documentCheckin, /กดอีกครั้งเพื่อยืนยันรับเอกสาร/);
   assert.match(documentCheckin, /ตรวจเอกสารรายห้อง/);
   assert.match(documentCheckin, /ประวัติการตรวจรับเอกสาร/);
+  assert.match(documentCheckin, /เลือกยกเลิกหลายคน/);
+  assert.match(documentCheckinApi, /studentIds: z\.array/);
+  assert.match(documentCheckinApi, /activeHandovers/);
   assert.match(documentCheckinApi, /requireAdminApi/);
   assert.match(documentCheckinApi, /RECEIVE_STUDENT_DOCUMENT/);
   assert.match(documentCheckinApi, /CANCEL_STUDENT_DOCUMENT/);

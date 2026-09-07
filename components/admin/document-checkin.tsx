@@ -73,15 +73,18 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
   const [historyRows, setHistoryRows] = useState<Row[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyAction, setHistoryAction] = useState("");
-  const [cancelTarget, setCancelTarget] = useState<Row | null>(null);
+  const [cancelTargets, setCancelTargets] = useState<Row[]>([]);
+  const [bulkCancelMode, setBulkCancelMode] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
 
   const grades = useMemo(() => [...new Set(options.map((item) => text(item.grade_level)).filter(Boolean))], [options]);
   const rooms = useMemo(() => [...new Set(options.filter((item) => !grade || text(item.grade_level) === grade).map((item) => text(item.room)).filter(Boolean))], [options, grade]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const historyPages = Math.max(1, Math.ceil(historyTotal / PAGE_SIZE));
-  const pendingOnPage = rows.filter((row) => text(row.document_status) !== "RECEIVED").map((row) => text(row.student_id));
-  const allPendingSelected = pendingOnPage.length > 0 && pendingOnPage.every((studentId) => selectedIds.includes(studentId));
+  const selectableOnPage = rows
+    .filter((row) => bulkCancelMode ? text(row.document_status) === "RECEIVED" : text(row.document_status) !== "RECEIVED")
+    .map((row) => text(row.student_id));
+  const allSelectableSelected = selectableOnPage.length > 0 && selectableOnPage.every((studentId) => selectedIds.includes(studentId));
   const quickReadyToReceive = Boolean(
     quickStudent
     && text(quickStudent.student_code) === studentCode.trim()
@@ -142,11 +145,11 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
   }, [tab, page, search, grade, room, status, historyAction]);
 
   useEffect(() => {
-    if (!cancelTarget) return;
+    if (!cancelTargets.length) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [cancelTarget]);
+  }, [cancelTargets]);
 
   function changeTab(next: Tab) {
     setTab(next);
@@ -156,6 +159,8 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     setRoom("");
     setStatus("");
     setHistoryAction("");
+    setBulkCancelMode(false);
+    setSelectedIds([]);
     if (next === "QUICK") window.setTimeout(() => codeInput.current?.focus(), 0);
   }
 
@@ -212,20 +217,23 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
 
   async function cancelReceipt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!cancelTarget) return;
+    if (!cancelTargets.length) return;
     const reason = text(new FormData(event.currentTarget).get("reason")).trim();
+    const studentIds = cancelTargets.map((row) => text(row.student_id));
     setBusy(true);
     try {
       const response = await fetch("/api/admin/document-checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", studentId: text(cancelTarget.student_id), reason }),
+        body: JSON.stringify({ action: "cancel", studentIds, reason }),
       });
-      const body = await readJson<{ error?: string }>(response);
+      const body = await readJson<{ cancelled?: number; error?: string }>(response);
       if (!response.ok) throw new Error(body.error);
-      toast.success("ยกเลิกสถานะรับเอกสารแล้ว");
-      setCancelTarget(null);
-      if (text(quickStudent?.student_id) === text(cancelTarget.student_id)) {
+      const cancelled = Number(body.cancelled ?? studentIds.length);
+      toast.success(`ยกเลิกสถานะรับเอกสารแล้ว ${cancelled.toLocaleString("th-TH")} รายการ`);
+      setCancelTargets([]);
+      setSelectedIds([]);
+      if (quickStudent && studentIds.includes(text(quickStudent.student_id))) {
         setQuickStudent({ ...quickStudent, document_status: "PENDING", received_at: null, received_by_name: null });
       }
       await Promise.all([loadList(true), loadHistory(true)]);
@@ -236,10 +244,10 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     }
   }
 
-  function toggleAllPending() {
-    setSelectedIds((current) => allPendingSelected
-      ? current.filter((studentId) => !pendingOnPage.includes(studentId))
-      : [...new Set([...current, ...pendingOnPage])]);
+  function toggleAllSelectable() {
+    setSelectedIds((current) => allSelectableSelected
+      ? current.filter((studentId) => !selectableOnPage.includes(studentId))
+      : [...new Set([...current, ...selectableOnPage])]);
   }
 
   return (
@@ -278,21 +286,29 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
             <div className={`document-quick-result${quickStudent ? " has-result" : ""}`}>
               {!quickStudent ? <div className="document-quick-empty"><FontAwesomeIcon icon={faFileCircleCheck}/><b>รอกรอกเลขประจำตัวนักเรียน</b><span>ระบบจะแสดงชื่อ ชั้น ห้อง และสถานะเอกสารก่อนบันทึก</span></div> : <>
                 <header><div><small>ข้อมูลนักเรียน</small><h3><StudentName row={quickStudent}/></h3><p>{text(quickStudent.grade_level)}/{text(quickStudent.room)}{quickStudent.class_number ? ` เลขที่ ${text(quickStudent.class_number)}` : ""} · รหัส {text(quickStudent.student_code)}</p></div><DocumentStatus row={quickStudent}/></header>
-                {quickStudent.eligible === false ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.eligibilityReason)}</span></div> : text(quickStudent.document_status) === "RECEIVED" ? <div className="document-received-detail"><span>รับเมื่อ <b>{formatDateTime(quickStudent.received_at)}</b></span><span>ผู้รับเอกสาร <b>{text(quickStudent.received_by_name) || "ผู้ดูแลระบบ"}</b></span>{canCancel && <button type="button" className="button danger-outline" disabled={busy} onClick={() => setCancelTarget(quickStudent)}><FontAwesomeIcon icon={faXmark}/> ยกเลิกสถานะ</button>}</div> : <><div className="document-enter-hint"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันรับเอกสาร</span></div><button type="button" className="button primary document-receive-button" disabled={busy} onClick={() => void receive([text(quickStudent.student_id)], true)}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> บันทึกรับเอกสารแล้ว</button></>}
+                {quickStudent.eligible === false ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.eligibilityReason)}</span></div> : text(quickStudent.document_status) === "RECEIVED" ? <div className="document-received-detail"><span>รับเมื่อ <b>{formatDateTime(quickStudent.received_at)}</b></span><span>ผู้รับเอกสาร <b>{text(quickStudent.received_by_name) || "ผู้ดูแลระบบ"}</b></span>{canCancel && <button type="button" className="button danger-outline" disabled={busy} onClick={() => setCancelTargets([quickStudent])}><FontAwesomeIcon icon={faXmark}/> ยกเลิกสถานะ</button>}</div> : <><div className="document-enter-hint"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันรับเอกสาร</span></div><button type="button" className="button primary document-receive-button" disabled={busy} onClick={() => void receive([text(quickStudent.student_id)], true)}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> บันทึกรับเอกสารแล้ว</button></>}
               </>}
             </div>
           </div>
         )}
 
         {tab === "ROOM" && <>
-          <div className="document-list-heading"><div><h2><FontAwesomeIcon icon={faSchool}/> ตรวจเอกสารรายห้อง</h2><p>เลือกนักเรียนที่นำเอกสารมาส่ง แล้วบันทึกพร้อมกันได้สูงสุด 50 รายการ</p></div>{selectedIds.length > 0 && <button type="button" className="button primary" disabled={busy} onClick={() => { if (window.confirm(`ยืนยันรับเอกสาร ${selectedIds.length.toLocaleString("th-TH")} รายการหรือไม่`)) void receive(selectedIds); }}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> รับเอกสาร {selectedIds.length.toLocaleString("th-TH")} รายการ</button>}</div>
+          <div className="document-list-heading">
+            <div><h2><FontAwesomeIcon icon={faSchool}/> ตรวจเอกสารรายห้อง</h2><p>{bulkCancelMode ? "เลือกนักเรียนที่ต้องการยกเลิกสถานะรับเอกสารได้สูงสุด 50 รายการ" : "เลือกนักเรียนที่นำเอกสารมาส่ง แล้วบันทึกพร้อมกันได้สูงสุด 50 รายการ"}</p></div>
+            <div className="toolbar-group">
+              {canCancel && <button type="button" className={`button ${bulkCancelMode ? "secondary" : "danger-outline"}`} disabled={busy} onClick={() => { setBulkCancelMode((current) => !current); setSelectedIds([]); }}><FontAwesomeIcon icon={bulkCancelMode ? faXmark : faBan}/> {bulkCancelMode ? "ออกจากโหมดยกเลิก" : "เลือกยกเลิกหลายคน"}</button>}
+              {selectedIds.length > 0 && (bulkCancelMode
+                ? <button type="button" className="button danger-solid" disabled={busy} onClick={() => setCancelTargets(rows.filter((row) => selectedIds.includes(text(row.student_id))))}><FontAwesomeIcon icon={faBan}/> ยกเลิก {selectedIds.length.toLocaleString("th-TH")} รายการ</button>
+                : <button type="button" className="button primary" disabled={busy} onClick={() => { if (window.confirm(`ยืนยันรับเอกสาร ${selectedIds.length.toLocaleString("th-TH")} รายการหรือไม่`)) void receive(selectedIds); }}><FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy}/> รับเอกสาร {selectedIds.length.toLocaleString("th-TH")} รายการ</button>)}
+            </div>
+          </div>
           <div className="document-filters">
             <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass}/><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ค้นหารหัสหรือชื่อนักเรียน..."/></label>
             <select className="admin-input" value={grade} onChange={(event) => { setGrade(event.target.value); setRoom(""); setPage(1); }} aria-label="กรองระดับชั้น"><option value="">ทุกระดับชั้น</option>{grades.map((item) => <option key={item}>{item}</option>)}</select>
             <select className="admin-input" value={room} onChange={(event) => { setRoom(event.target.value); setPage(1); }} aria-label="กรองห้อง"><option value="">ทุกห้อง</option>{rooms.map((item) => <option key={item} value={item}>/{item}</option>)}</select>
             <select className="admin-input" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} aria-label="กรองสถานะเอกสาร"><option value="">ทุกสถานะ</option><option value="RECEIVED">รับเอกสารแล้ว</option><option value="PENDING">ยังไม่ได้รับ</option></select>
           </div>
-          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดข้อมูล...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-checkin-table"><thead><tr><th className="document-check-cell"><input type="checkbox" checked={allPendingSelected} disabled={!pendingOnPage.length} onChange={toggleAllPending} aria-label="เลือกนักเรียนที่ยังไม่ได้รับเอกสารทั้งหมดในหน้านี้"/></th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>ชั้น / ห้อง / เลขที่</th><th>สถานะเอกสาร</th><th>ผู้รับ / วันที่รับ</th><th>จัดการ</th></tr></thead><tbody>{rows.map((row) => { const received = text(row.document_status) === "RECEIVED"; const studentId = text(row.student_id); return <tr key={studentId}><td className="document-check-cell"><input type="checkbox" disabled={received} checked={selectedIds.includes(studentId)} onChange={() => setSelectedIds((current) => current.includes(studentId) ? current.filter((id) => id !== studentId) : [...current, studentId])} aria-label={`เลือก ${text(row.first_name)} ${text(row.last_name)}`}/></td><td><b>{text(row.student_code)}</b></td><td><StudentName row={row}/></td><td>{text(row.grade_level)}/{text(row.room)}{row.class_number ? ` เลขที่ ${text(row.class_number)}` : ""}</td><td><DocumentStatus row={row}/></td><td>{received ? <><b className="document-receiver">{text(row.received_by_name) || "ผู้ดูแลระบบ"}</b><small className="document-date">{formatDateTime(row.received_at)}</small></> : "—"}</td><td><div className="table-actions">{received ? canCancel && <button type="button" className="icon-button danger-icon-button" title="ยกเลิกสถานะรับเอกสาร" aria-label="ยกเลิกสถานะรับเอกสาร" onClick={() => setCancelTarget(row)}><FontAwesomeIcon icon={faXmark}/></button> : <button type="button" className="icon-button document-row-receive" disabled={busy} title="บันทึกรับเอกสาร" aria-label="บันทึกรับเอกสาร" onClick={() => void receive([studentId])}><FontAwesomeIcon icon={faCheck}/></button>}</div></td></tr>; })}</tbody></table>{!rows.length && <div className="empty-state small">ไม่พบรายการนักเรียนตามตัวกรอง</div>}<Pagination page={page} pages={totalPages} total={total} setPage={setPage}/></div>}
+          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดข้อมูล...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-checkin-table"><thead><tr><th className="document-check-cell"><input type="checkbox" checked={allSelectableSelected} disabled={!selectableOnPage.length} onChange={toggleAllSelectable} aria-label={bulkCancelMode ? "เลือกผู้ที่รับเอกสารแล้วทั้งหมดในหน้านี้" : "เลือกผู้ที่ยังไม่ได้รับเอกสารทั้งหมดในหน้านี้"}/></th><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>ชั้น / ห้อง / เลขที่</th><th>สถานะเอกสาร</th><th>ผู้รับ / วันที่รับ</th><th>จัดการ</th></tr></thead><tbody>{rows.map((row) => { const received = text(row.document_status) === "RECEIVED"; const selectable = bulkCancelMode ? received : !received; const studentId = text(row.student_id); return <tr key={studentId}><td className="document-check-cell"><input type="checkbox" disabled={!selectable} checked={selectedIds.includes(studentId)} onChange={() => setSelectedIds((current) => current.includes(studentId) ? current.filter((id) => id !== studentId) : [...current, studentId])} aria-label={`เลือก ${text(row.first_name)} ${text(row.last_name)}`}/></td><td><b>{text(row.student_code)}</b></td><td><StudentName row={row}/></td><td>{text(row.grade_level)}/{text(row.room)}{row.class_number ? ` เลขที่ ${text(row.class_number)}` : ""}</td><td><DocumentStatus row={row}/></td><td>{received ? <><b className="document-receiver">{text(row.received_by_name) || "ผู้ดูแลระบบ"}</b><small className="document-date">{formatDateTime(row.received_at)}</small></> : "—"}</td><td><div className="table-actions">{received ? canCancel && <button type="button" className="icon-button danger-icon-button" title="ยกเลิกสถานะรับเอกสาร" aria-label="ยกเลิกสถานะรับเอกสาร" onClick={() => setCancelTargets([row])}><FontAwesomeIcon icon={faXmark}/></button> : <button type="button" className="icon-button document-row-receive" disabled={busy || bulkCancelMode} title="บันทึกรับเอกสาร" aria-label="บันทึกรับเอกสาร" onClick={() => void receive([studentId])}><FontAwesomeIcon icon={faCheck}/></button>}</div></td></tr>; })}</tbody></table>{!rows.length && <div className="empty-state small">ไม่พบรายการนักเรียนตามตัวกรอง</div>}<Pagination page={page} pages={totalPages} total={total} setPage={setPage}/></div>}
         </>}
 
         {tab === "HISTORY" && <>
@@ -307,7 +323,7 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
         </>}
       </section>
 
-      {cancelTarget && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setCancelTarget(null); }}><section className="modal document-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="document-cancel-title" onMouseDown={(event) => event.stopPropagation()}><div className="modal-icon danger-icon"><FontAwesomeIcon icon={faBan}/></div><h2 id="document-cancel-title">ยกเลิกสถานะรับเอกสาร</h2><p><StudentName row={cancelTarget}/><br/>{text(cancelTarget.grade_level)}/{text(cancelTarget.room)}</p><form onSubmit={cancelReceipt}><label className="field"><span>เหตุผลในการยกเลิก <b>*</b></span><textarea name="reason" minLength={3} maxLength={500} placeholder="เช่น บันทึกผิดคน หรือเอกสารต้องนำกลับไปแก้ไข" required/></label><div className="modal-actions"><button type="button" className="button secondary" disabled={busy} onClick={() => setCancelTarget(null)}>ไม่ยกเลิก</button><button className="button danger-solid" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : faBan} spin={busy}/> ยืนยันยกเลิก</button></div></form></section></div>}
+      {cancelTargets.length > 0 && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setCancelTargets([]); }}><section className="modal document-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="document-cancel-title" onMouseDown={(event) => event.stopPropagation()}><div className="modal-icon danger-icon"><FontAwesomeIcon icon={faBan}/></div><h2 id="document-cancel-title">ยกเลิกสถานะรับเอกสาร</h2>{cancelTargets.length === 1 ? <p><StudentName row={cancelTargets[0]}/><br/>{text(cancelTargets[0].grade_level)}/{text(cancelTargets[0].room)}</p> : <><p>เลือกไว้ทั้งหมด <b>{cancelTargets.length.toLocaleString("th-TH")} รายการ</b></p><div className="document-bulk-cancel-list">{cancelTargets.slice(0, 8).map((row) => <span key={text(row.student_id)}>{text(row.student_code)} · <StudentName row={row}/></span>)}{cancelTargets.length > 8 && <small>และอีก {(cancelTargets.length - 8).toLocaleString("th-TH")} รายการ</small>}</div></>}<form onSubmit={cancelReceipt}><label className="field"><span>เหตุผลในการยกเลิก <b>*</b></span><textarea name="reason" minLength={3} maxLength={500} placeholder="เช่น บันทึกผิดคน หรือเอกสารต้องนำกลับไปแก้ไข" required autoFocus/></label><div className="modal-actions"><button type="button" className="button secondary" disabled={busy} onClick={() => setCancelTargets([])}>ไม่ยกเลิก</button><button className="button danger-solid" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : faBan} spin={busy}/> ยืนยันยกเลิก {cancelTargets.length.toLocaleString("th-TH")} รายการ</button></div></form></section></div>}
     </>
   );
 }
