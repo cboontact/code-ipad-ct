@@ -86,6 +86,11 @@ export async function GET(request: Request) {
         ${baseSql} WHERE ${baseClauses.join(" AND ")}`).bind(...baseBindings).first<Record<string,number|null>>(),
       db.prepare(`SELECT COUNT(*) AS count ${baseSql} WHERE ${listClauses.join(" AND ")}`).bind(...listBindings).first<{count:number}>(),
       db.prepare(`SELECT t.id AS teacher_id,t.teacher_code,t.prefix,t.first_name,t.last_name,a.name AS learning_area,
+        (SELECT COUNT(*) FROM survey_responses r2
+          WHERE r2.decision='ACCEPT'
+            AND strftime('%Y',r2.submitted_at)=strftime('%Y',r.submitted_at)
+            AND (r2.submitted_at<r.submitted_at OR (r2.submitted_at=r.submitted_at AND r2.id<=r.id))) AS document_number,
+        CAST(strftime('%Y',r.submitted_at) AS INTEGER)+543 AS document_year,
         d.id AS assignment_id,d.serial_number,d.asset_number,${statusSql} AS handover_status,h.handed_over_at,h.returned_at,h.note,
         ha.display_name AS handed_over_by_name,ra.display_name AS returned_by_name
         ${baseSql} WHERE ${listClauses.join(" AND ")} ORDER BY a.sort_order,t.sort_order,t.first_name,t.last_name LIMIT ? OFFSET ?`)
