@@ -1,3 +1,5 @@
+"use client";
+
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCode,
@@ -5,6 +7,7 @@ import {
   faDatabase,
 } from "@fortawesome/free-solid-svg-icons";
 import { faCloudflare } from "@fortawesome/free-brands-svg-icons";
+import { useLanguage } from "@/components/language-provider";
 
 function NextJsIcon() {
   return (
@@ -24,8 +27,9 @@ function TypeScriptIcon() {
 }
 
 export function SiteFooter() {
+  const { t } = useLanguage();
   return (
-    <footer className="site-footer no-print">
+    <footer className="site-footer no-print" data-no-auto-translate>
       <div className="shell site-footer-inner">
         <div className="site-footer-developer">
           <span className="site-footer-code" aria-hidden="true"><FontAwesomeIcon icon={faCode} /></span>
@@ -33,9 +37,9 @@ export function SiteFooter() {
         </div>
         <p className="site-footer-copyright">
           <FontAwesomeIcon icon={faCopyright} />
-          <span>{new Date().getFullYear()} โรงเรียนจอมทอง · สงวนลิขสิทธิ์</span>
+          <span>{new Date().getFullYear()} {t("โรงเรียนจอมทอง · สงวนลิขสิทธิ์", "Chomthong School · All rights reserved")}</span>
         </p>
-        <div className="site-footer-tech" aria-label="เทคโนโลยีที่ใช้พัฒนาระบบ">
+        <div className="site-footer-tech" aria-label={t("เทคโนโลยีที่ใช้พัฒนาระบบ", "Technologies used")}>
           <small>Powered by</small>
           <span title="Next.js" aria-label="Next.js"><NextJsIcon /></span>
           <span className="cloudflare" title="Cloudflare Workers" aria-label="Cloudflare Workers"><FontAwesomeIcon icon={faCloudflare} /></span>

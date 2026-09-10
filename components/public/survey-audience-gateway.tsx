@@ -10,6 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { IpadProductVisual } from "@/components/public/ipad-product-visual";
 import { readJson } from "@/lib/client-json";
+import { useLanguage } from "@/components/language-provider";
 
 type HeroCopy = {
   heroEyebrow: string;
@@ -30,6 +31,7 @@ const defaultHeroCopy: HeroCopy = {
 };
 
 export function SurveyAudienceGateway(){
+  const { language, t } = useLanguage();
   const [hero, setHero] = useState(defaultHeroCopy);
 
   useEffect(() => {
@@ -51,19 +53,19 @@ export function SurveyAudienceGateway(){
   }, []);
 
   return (
-    <main className="shell public-main audience-page">
+    <main className="shell public-main audience-page" data-no-auto-translate>
       <section className="hero audience-main-hero">
         <div>
           <span className="eyebrow"><FontAwesomeIcon icon={faGraduationCap}/> {hero.heroEyebrow}</span>
           <h1>
-            <span className="hero-registration-line">{hero.heroTitle}</span>
-            <span className="hero-title-line"><em>{hero.heroProductName}</em> {hero.heroProductSuffix} <strong className="free-label">{hero.heroFreeLabel}</strong></span>
-            <span className="hero-audience-line">{hero.heroAudience}</span>
+            <span className="hero-registration-line">{language === "en" ? "Register for an" : hero.heroTitle}</span>
+            <span className="hero-title-line"><em>{hero.heroProductName}</em> {language === "en" ? "learning loan" : hero.heroProductSuffix} <strong className="free-label">{language === "en" ? "FREE!" : hero.heroFreeLabel}</strong></span>
+            <span className="hero-audience-line">{language === "en" ? "For teachers and students of Chomthong School" : hero.heroAudience}</span>
           </h1>
           <div className="hero-actions">
             <Link className="hero-detail-link" href="/project">
               <FontAwesomeIcon icon={faBullhorn} />
-              ดูรายละเอียด
+              {t("ดูรายละเอียด", "View details")}
               <FontAwesomeIcon icon={faArrowRight} />
             </Link>
           </div>
@@ -72,26 +74,26 @@ export function SurveyAudienceGateway(){
           <IpadProductVisual />
         </div>
       </section>
-      <section className="section-heading audience-selection-heading"><div><h2>เลือกประเภทผู้ลงทะเบียน</h2></div><p>เลือกให้ตรงกับสถานะของผู้ใช้งาน</p></section>
-      <section className="audience-grid" aria-label="เลือกประเภทผู้ลงทะเบียน">
+      <section className="section-heading audience-selection-heading"><div><h2>{t("เลือกประเภทผู้ลงทะเบียน", "Choose registration type")}</h2></div><p>{t("เลือกให้ตรงกับสถานะของผู้ใช้งาน", "Select the option that matches your role")}</p></section>
+      <section className="audience-grid" aria-label={t("เลือกประเภทผู้ลงทะเบียน", "Choose registration type")}>
         <Link href="/teacher" className="audience-card teacher-audience">
           <span className="audience-card-icon"><FontAwesomeIcon icon={faChalkboardTeacher}/></span>
           <div>
-            <small>สำหรับบุคลากร</small>
-            <h2>ครูและบุคลากร</h2>
-            <b>เริ่มลงทะเบียน <FontAwesomeIcon icon={faArrowRight}/></b>
+            <small>{t("สำหรับบุคลากร", "For personnel")}</small>
+            <h2>{t("ครูและบุคลากร", "Teachers and Staff")}</h2>
+            <b>{t("เริ่มลงทะเบียน", "Start registration")} <FontAwesomeIcon icon={faArrowRight}/></b>
           </div>
         </Link>
         <Link href="/student" className="audience-card student-audience">
           <span className="audience-card-icon"><FontAwesomeIcon icon={faGraduationCap}/></span>
           <div>
-            <small>สำหรับนักเรียน</small>
-            <h2>นักเรียน</h2>
-            <b>เริ่มลงทะเบียน <FontAwesomeIcon icon={faArrowRight}/></b>
+            <small>{t("สำหรับนักเรียน", "For students")}</small>
+            <h2>{t("นักเรียน", "Students")}</h2>
+            <b>{t("เริ่มลงทะเบียน", "Start registration")} <FontAwesomeIcon icon={faArrowRight}/></b>
           </div>
         </Link>
       </section>
-      <p className="audience-help">ข้อมูลที่กรอกจะใช้เพื่อดำเนินโครงการและจัดทำเอกสาร AWAT-03 เท่านั้น</p>
+      <p className="audience-help">{t("ข้อมูลที่กรอกจะใช้เพื่อดำเนินโครงการและจัดทำเอกสาร AWAT-03 เท่านั้น", "The information provided will only be used to administer the project and prepare AWAT-03 documents.")}</p>
     </main>
   );
 }

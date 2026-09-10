@@ -7,6 +7,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { LanguageProvider } from "@/components/language-provider";
 
 config.autoAddCss = false;
 
@@ -25,10 +26,12 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body>
-        <SiteHeader />
-        {children}
-        <SiteFooter />
-        <Toaster richColors position="top-center" closeButton />
+        <LanguageProvider>
+          <SiteHeader />
+          {children}
+          <SiteFooter />
+          <Toaster richColors position="top-center" closeButton />
+        </LanguageProvider>
       </body>
     </html>
   );

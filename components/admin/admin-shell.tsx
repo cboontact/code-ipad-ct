@@ -34,6 +34,7 @@ import {
   ADMIN_IDLE_TIMEOUT_MS,
   ADMIN_SESSION_HEARTBEAT_MS,
 } from "@/lib/auth/session-policy";
+import { LanguageSwitcher } from "@/components/language-provider";
 
 const ADMIN_ACTIVITY_KEY = "ct_admin_last_activity";
 const ADMIN_HEARTBEAT_KEY = "ct_admin_last_heartbeat";
@@ -211,6 +212,7 @@ export function AdminShell({
           <FontAwesomeIcon icon={faBars}/>
         </button>
         <b>เมนูผู้ดูแลระบบ</b>
+        <LanguageSwitcher compact />
       </div>
       <aside className={`admin-sidebar${mobileMenuOpen ? " mobile-open" : ""}`}>
         <button className="admin-sidebar-close" type="button" onClick={() => setMobileMenuOpen(false)} aria-label="ปิดเมนู">
@@ -230,6 +232,7 @@ export function AdminShell({
           </span>
         </Link>
         <div className="admin-sidebar-label">เมนูผู้ดูแลระบบ</div>
+        <LanguageSwitcher />
         <nav aria-label="เมนูผู้ดูแลระบบ">
           {links.map(([href, label, icon]) => (
             <Link
