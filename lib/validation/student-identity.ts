@@ -21,11 +21,15 @@ export function isValidThaiCitizenId(value: string): boolean {
  * - Thai citizens: 13 digits with the official checksum.
  * - Persons without Thai nationality: a 13-digit registry number beginning with 0.
  * - G-code students: G followed by 12 digits (13 characters in total).
+ * - Passports: 6-13 Latin letters/digits with at least one letter.
  */
 export function isValidStudentIdentityId(value: string): boolean {
   const normalized = normalizeStudentIdentityId(value);
 
-  if (/^G\d{12}$/.test(normalized)) return !/^G0{12}$/.test(normalized);
+  if (/^G\d+$/.test(normalized))
+    return /^G\d{12}$/.test(normalized) && !/^G0{12}$/.test(normalized);
   if (/^0\d{12}$/.test(normalized)) return !/^0{13}$/.test(normalized);
+  if (/^(?=.*[A-Z])[A-Z0-9]{6,13}$/.test(normalized))
+    return !/^([A-Z0-9])\1+$/.test(normalized);
   return isValidThaiCitizenId(normalized);
 }

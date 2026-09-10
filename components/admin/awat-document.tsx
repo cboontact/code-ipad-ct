@@ -43,7 +43,7 @@ export function AwatDocument({ data }: { data: PrintableTeacher }) {
           <div className="awat-item-body">
             <div>ชื่อผู้ยืม (ครู/บุคลากร) <Line className="borrower">{data.borrowerName}</Line></div>
             <div className="citizen-row">
-              <span>หมายเลขประจำตัวประชาชน</span>
+              <span>เลขประจำตัวประชาชน / Passport</span>
               <span className="digit-boxes">{digits.map((digit, i) => <i key={i}>{digit.trim()}</i>)}</span>
             </div>
           </div>

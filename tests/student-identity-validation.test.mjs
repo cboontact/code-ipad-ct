@@ -26,6 +26,16 @@ test("accepts non-Thai registry IDs beginning with zero", () => {
   assert.equal(isValidStudentIdentityId("0000000000000"), false);
 });
 
+test("accepts passport numbers without weakening Thai ID validation", () => {
+  assert.equal(isValidStudentIdentityId("AB1234567"), true);
+  assert.equal(isValidStudentIdentityId("p123456"), true);
+  assert.equal(isValidStudentIdentityId("A12B34C56"), true);
+  assert.equal(isValidStudentIdentityId("ABC12"), false);
+  assert.equal(isValidStudentIdentityId("123456789"), false);
+  assert.equal(isValidStudentIdentityId("AAAAAA"), false);
+  assert.equal(isValidStudentIdentityId("AB12/3456"), false);
+});
+
 test("normalizes spaces, hyphens, casing, and full-width characters", () => {
   assert.equal(normalizeStudentIdentityId(" g-１２３ ４５６７８９０１２ "), "G123456789012");
 });

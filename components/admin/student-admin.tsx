@@ -278,7 +278,7 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
     {hasAwat&&<label className="field"><span>Serial Number <small>{s(initial.approval_status)==="APPROVED"?"แก้ไขได้":"แก้ไขได้หลังอนุมัติ"}</small></span><input name={s(initial.approval_status)==="APPROVED"?"serialNumber":undefined} defaultValue={s(initial.serial_number)} disabled={s(initial.approval_status)!=="APPROVED"}/></label>}
     {hasAwat&&<>
       <div className="student-awat-editor-heading full"><span className="eyebrow">ข้อมูลตามแบบฟอร์ม AWAT-03</span><h3>ข้อมูลผู้ยืม ผู้ปกครอง และที่อยู่ตามทะเบียนบ้าน</h3><p>ข้อมูลส่วนนี้ถูกเข้ารหัสและใช้สำหรับออกเอกสาร AWAT-03 นักเรียน</p></div>
-      <label className="field"><span>เลขประจำตัวประชาชน / รหัส G <b>*</b></span><input name="citizenId" inputMode="text" autoCapitalize="characters" maxLength={13} placeholder="เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก" defaultValue={s(initial.citizenId)} required/><small className="field-hint">รองรับเลขคนไทย รหัส G และเลขบุคคลไม่มีสัญชาติไทยที่ขึ้นต้นด้วย 0</small></label>
+      <label className="field"><span>เลขประจำตัวประชาชน / รหัส G / Passport <b>*</b></span><input name="citizenId" inputMode="text" autoCapitalize="characters" maxLength={13} placeholder="เลข 13 หลัก รหัส G หรือ Passport" defaultValue={s(initial.citizenId)} required/><small className="field-hint">รองรับเลขคนไทย รหัส G เลขบุคคลไม่มีสัญชาติไทย และ Passport</small></label>
       <label className="field student-guardian-name"><span>ชื่อ-นามสกุลผู้ปกครอง (รวมคำนำหน้า) <b>*</b></span><input name="guardianFullName" defaultValue={`${s(initial.guardianPrefix)}${s(initial.guardianName)}`} pattern="^(นาย|นางสาว|นาง)\s*.+$" title="กรุณาขึ้นต้นด้วย นาย นาง หรือนางสาว" placeholder="เช่น นางสาวสมใจ ใจดี" required/></label>
       <label className="field"><span>เบอร์โทรศัพท์ผู้ปกครอง <b>*</b></span><input name="guardianPhone" inputMode="tel" maxLength={10} defaultValue={s(initial.guardianPhone)} required/></label>
       <label className="field"><span>บ้านเลขที่ <b>*</b></span><input name="houseNo" defaultValue={s(initial.houseNo)} required/></label>
@@ -305,7 +305,7 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
       <StudentDetailInfo label="อีเมลโรงเรียน">{s(initial.school_email)||"—"}</StudentDetailInfo>
       <StudentDetailInfo label="อีเมล NDLP">{s(initial.ndlp_email)||"—"}</StudentDetailInfo>
       {hasAwat&&<StudentDetailInfo label="Serial Number">{s(initial.serial_number)||"ยังไม่ได้บันทึก"}</StudentDetailInfo>}
-      {hasAwat&&<StudentDetailInfo label="เลขประจำตัวประชาชน">{s(initial.citizenId)||"—"}</StudentDetailInfo>}
+      {hasAwat&&<StudentDetailInfo label="เลขประจำตัวประชาชน / Passport">{s(initial.citizenId)||"—"}</StudentDetailInfo>}
       {hasAwat&&<StudentDetailInfo label="ผู้ปกครอง">{`${s(initial.guardianPrefix)}${s(initial.guardianName)}`.trim()||"—"}</StudentDetailInfo>}
       {hasAwat&&<StudentDetailInfo label="เบอร์โทรศัพท์ผู้ปกครอง">{s(initial.guardianPhone)||"—"}</StudentDetailInfo>}
       {hasAwat&&<StudentDetailInfo label="ที่อยู่ตามทะเบียนบ้าน" wide>{[s(initial.houseNo),s(initial.moo)&&`หมู่ ${s(initial.moo)}`,s(initial.soi)&&`ซอย ${s(initial.soi)}`,s(initial.road)&&`ถนน ${s(initial.road)}`,s(initial.subdistrict)&&`ต.${s(initial.subdistrict)}`,s(initial.district)&&`อ.${s(initial.district)}`,s(initial.province)&&`จ.${s(initial.province)}`,s(initial.postalCode)].filter(Boolean).join(" ")||"—"}</StudentDetailInfo>}

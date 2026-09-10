@@ -7,7 +7,6 @@ import { guardianPrefixOptions } from "@/lib/data/student-options";
 import { isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
 import {
   isValidStudentIdentityId,
-  isValidThaiCitizenId,
   normalizeStudentIdentityId,
 } from "@/lib/validation/student-identity";
 
@@ -29,11 +28,11 @@ export const studentIdentityIdSchema = z.string()
   .transform(normalizeStudentIdentityId)
   .refine(
     isValidStudentIdentityId,
-    "เลขประจำตัวไม่ถูกต้อง: คนไทยใช้เลข 13 หลัก, เด็กติด G ใช้ G ตามด้วยตัวเลข 12 หลัก หรือบุคคลไม่มีสัญชาติไทยใช้เลข 13 หลักที่ขึ้นต้นด้วย 0",
+    "เลขประจำตัวไม่ถูกต้อง: คนไทยใช้เลข 13 หลัก, เด็กติด G ใช้ G ตามด้วยตัวเลข 12 หลัก, บุคคลไม่มีสัญชาติไทยใช้เลข 13 หลักที่ขึ้นต้นด้วย 0 หรือใช้หมายเลข Passport 6–13 ตัว",
   );
 
 export const piiSchema = z.object({
-  citizenId: z.string().regex(/^\d{13}$/, "กรุณากรอกเลขประจำตัวประชาชน 13 หลัก").refine(isValidThaiCitizenId, "เลขประจำตัวประชาชนไม่ถูกต้อง"),
+  citizenId: studentIdentityIdSchema,
   houseNo: z.string().trim().min(1, "กรุณากรอกบ้านเลขที่").max(30), moo: z.string().trim().max(20).optional().default(""),
   soi: z.string().trim().max(100).optional().default(""), road: z.string().trim().max(100).optional().default(""), subdistrict: z.string().trim().min(1, "กรุณาเลือกตำบล").max(100),
   district: z.string().trim().min(1, "กรุณาเลือกอำเภอ").max(100), province: z.string().trim().min(1, "กรุณาเลือกจังหวัด").max(100),

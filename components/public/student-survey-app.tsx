@@ -98,7 +98,7 @@ export function StudentSurveyApp(){
     if(decision==="ACCEPT"){
       if(!isSchoolEmail(email)){toast.warning("อีเมลโรงเรียนต้องลงท้ายด้วย @chomthong.ac.th");return false;}
       if(!isNdlpEmail(ndlpEmail)){toast.warning("อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");return false;}
-      if(!isValidStudentIdentityId(pii.citizenId)){toast.warning("เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G หรือเลขที่ขึ้นต้นด้วย 0");return false;}
+      if(!isValidStudentIdentityId(pii.citizenId)){toast.warning("เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G เลขต่างด้าว หรือ Passport");return false;}
       if(!pii.houseNo||!pii.province||!pii.district||!pii.subdistrict||!/^\d{5}$/.test(pii.postalCode)){toast.warning("กรุณากรอกที่อยู่ตามทะเบียนบ้านให้ครบ");return false;}
       const guardian=parseGuardianFullName(pii.guardianFullName);
       if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return false;}
@@ -199,7 +199,7 @@ export function StudentSurveyApp(){
       </section>
       <div className="form-grid two student-contact-grid">
         <label className="field"><span><FontAwesomeIcon icon={faPhone}/> เบอร์โทรศัพท์นักเรียน<b>*</b></span><input inputMode="tel" maxLength={10} placeholder="เช่น 0812345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,""))}/></label>
-        {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={15} placeholder="เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก" value={pii.citizenId} onChange={e=>setPii(current=>({...current,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)}))}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ ส่วนเด็กติด G และบุคคลไม่มีสัญชาติไทยรองรับตามเลขทะเบียนการศึกษา</small></label>}
+        {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G / Passport<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={13} placeholder="เลข 13 หลัก รหัส G หรือ Passport" value={pii.citizenId} onChange={e=>setPii(current=>({...current,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)}))}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ และรองรับรหัส G เลขบุคคลไม่มีสัญชาติไทย หรือ Passport</small></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมลโรงเรียน<b>*</b></span><input type="email" pattern={SCHOOL_EMAIL_PATTERN} title="ต้องใช้อีเมล @chomthong.ac.th" placeholder="name@chomthong.ac.th" value={email} onChange={e=>setEmail(e.target.value)}/></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมล NDLP<b>*</b></span><input type="email" pattern={NDLP_EMAIL_PATTERN} title="ต้องใช้อีเมล @ndlp.go.th" placeholder="name@ndlp.go.th" value={ndlpEmail} onChange={e=>setNdlpEmail(e.target.value)}/><small className="field-hint">หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา</small></label>}
       </div>

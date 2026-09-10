@@ -26,7 +26,7 @@ import {
   faBriefcase,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "sonner";
-import { isValidThaiCitizenId } from "@/lib/validation/survey";
+import { isValidStudentIdentityId, normalizeStudentIdentityId } from "@/lib/validation/survey";
 import { NDLP_EMAIL_PATTERN, SCHOOL_EMAIL_PATTERN, isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
 import { readJson } from "@/lib/client-json";
 import { IpadProductVisual } from "@/components/public/ipad-product-visual";
@@ -271,8 +271,8 @@ export function SurveyApp() {
   }
   function validatePii() {
     const next: Partial<Record<keyof Pii, string>> = {};
-    if (!/^\d{13}$/.test(pii.citizenId) || !isValidThaiCitizenId(pii.citizenId))
-      next.citizenId = "เลขประจำตัวประชาชนไม่ถูกต้อง";
+    if (!isValidStudentIdentityId(pii.citizenId))
+      next.citizenId = "เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G เลขต่างด้าว หรือ Passport";
     if (!pii.houseNo.trim()) next.houseNo = "กรุณากรอกบ้านเลขที่";
     if (!pii.province) next.province = "กรุณาเลือกจังหวัด";
     if (!pii.district) next.district = "กรุณาเลือกอำเภอ";
@@ -397,7 +397,10 @@ export function SurveyApp() {
         value={pii[key]}
         aria-invalid={Boolean(errors[key])}
         onChange={(e) => {
-          setPii({ ...pii, [key]: e.target.value });
+          const value = key === "citizenId"
+            ? normalizeStudentIdentityId(e.target.value).slice(0, 13)
+            : e.target.value;
+          setPii({ ...pii, [key]: value });
           setErrors({ ...errors, [key]: undefined });
         }}
       />
@@ -844,10 +847,11 @@ export function SurveyApp() {
                 </div>
               </div>
               <div className="form-grid two">
-                {field("citizenId", "เลขประจำตัวประชาชน", {
-                  inputMode: "numeric",
+                {field("citizenId", "เลขประจำตัวประชาชน / รหัส G / Passport", {
+                  inputMode: "text",
+                  autoCapitalize: "characters",
                   maxLength: 13,
-                  placeholder: "กรอกตัวเลข 13 หลัก",
+                  placeholder: "เลข 13 หลัก รหัส G หรือ Passport",
                 })}
               </div>
               <div className="form-heading">

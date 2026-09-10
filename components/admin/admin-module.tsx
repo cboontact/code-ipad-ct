@@ -2755,10 +2755,10 @@ function DetailDialog({
               })}
               {form.decision === "ACCEPT" && (
                 <>
-                  {editField("citizenId", "เลขประจำตัวประชาชน / รหัส G", {
+                  {editField("citizenId", "เลขประจำตัวประชาชน / รหัส G / Passport", {
                     inputMode: "text",
                     maxLength: 13,
-                    placeholder: "เลข 13 หลัก หรือ G ตามด้วยเลข 12 หลัก",
+                    placeholder: "เลข 13 หลัก รหัส G หรือ Passport",
                   })}
                   {editField("houseNo", "บ้านเลขที่")}
                   {editField("moo", "หมู่")}
@@ -2801,7 +2801,7 @@ function DetailDialog({
               <Info label="ความประสงค์" value={s(t.decision) || "ยังไม่ลงทะเบียน"} />
               <Info label="อีเมลโรงเรียน" value={s(t.email) || "—"} />
               <Info label="อีเมล NDLP" value={s(t.ndlp_email) || "—"} />
-              <Info label="เลขประจำตัวประชาชน" value={p ? s(p.citizenId) : "—"} />
+              <Info label="เลขประจำตัวประชาชน / Passport" value={p ? s(p.citizenId) : "—"} />
               <Info label="เบอร์โทรศัพท์" value={s(t.phone) || "—"} />
               <Info
                 label="ที่อยู่"
