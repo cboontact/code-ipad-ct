@@ -3,6 +3,8 @@ import { apiError, json } from "@/lib/http";
 import { assertSameOrigin, clientIp, enforcePublicRateLimit } from "@/lib/security/request";
 import { encryptJson, verifyToken } from "@/lib/security/crypto";
 import { surveySubmitSchema } from "@/lib/validation/survey";
+import { isNdlpEmail } from "@/lib/validation/email-domains";
+import { isNonThaiIdentityId } from "@/lib/validation/student-identity";
 import { isValidThaiAddress } from "@/lib/data/thai-address";
 import { registrationWindow } from "@/lib/registration-window";
 
@@ -13,8 +15,13 @@ export async function POST(request: Request) {
     const settings = await getSettings(db); if (!registrationWindow(settings, "teacher").isOpen) throw new Error("TEACHER_REGISTRATION_CLOSED");
     const token = await verifyToken<{ teacherId: string; purpose: string }>(input.verificationToken);
     if (!token || token.teacherId !== input.teacherId || token.purpose !== "survey") return json({ error: "การยืนยันหมดอายุ กรุณายืนยันตัวตนใหม่" }, 401);
-    const teacher = await db.prepare("SELECT id, prefix, first_name, last_name FROM teachers WHERE id = ? AND is_active = 1").bind(input.teacherId).first<{ id: string; prefix: string; first_name: string; last_name: string }>();
+    const teacher = await db.prepare("SELECT id, prefix, first_name, last_name, learning_area_id FROM teachers WHERE id = ? AND is_active = 1").bind(input.teacherId).first<{ id: string; prefix: string; first_name: string; last_name: string; learning_area_id: string }>();
     if (!teacher) return json({ error: "ไม่พบข้อมูลครู" }, 404);
+    const foreignTeacher = /^[A-Za-z]/.test(teacher.prefix.trim())
+      || (input.decision === "ACCEPT" && Boolean(input.pii) && isNonThaiIdentityId(input.pii!.citizenId));
+    const ndlpOptional = teacher.learning_area_id === "staff" || foreignTeacher;
+    if (!ndlpOptional && !isNdlpEmail(input.profile.ndlpEmail))
+      return json({ error: "กรุณากรอกอีเมล NDLP ให้ถูกต้อง" }, 400);
     const configuredQuota = Number.parseInt(settings.teacher_ipad_quota ?? "127", 10);
     const capacity = Number.isFinite(configuredQuota) && configuredQuota >= 0 ? configuredQuota : 127;
     if (input.decision === "ACCEPT" && input.pii && !isValidThaiAddress(input.pii))

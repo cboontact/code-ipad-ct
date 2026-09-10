@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isNonThaiIdentityId,
   isValidStudentIdentityId,
   isValidThaiCitizenId,
   normalizeStudentIdentityId,
@@ -38,4 +39,11 @@ test("accepts passport numbers without weakening Thai ID validation", () => {
 
 test("normalizes spaces, hyphens, casing, and full-width characters", () => {
   assert.equal(normalizeStudentIdentityId(" g-１２３ ４５６７８９０１２ "), "G123456789012");
+});
+
+test("recognizes identity values that qualify for the non-Thai NDLP exemption", () => {
+  assert.equal(isNonThaiIdentityId("0123456789012"), true);
+  assert.equal(isNonThaiIdentityId("AB1234567"), true);
+  assert.equal(isNonThaiIdentityId("G123456789012"), false);
+  assert.equal(isNonThaiIdentityId("8000000000006"), false);
 });

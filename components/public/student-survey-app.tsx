@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 import {
   isGuardianNameSameAsStudent,
+  isNonThaiIdentityId,
   isValidStudentIdentityId,
   normalizeStudentIdentityId,
   parseGuardianFullName,
@@ -97,7 +98,7 @@ export function StudentSurveyApp(){
     if(!/^0(?:6|8|9)\d{8}$|^0(?:2|3|4|5|7)\d{7}$/.test(phone)){toast.warning("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง");return false;}
     if(decision==="ACCEPT"){
       if(!isSchoolEmail(email)){toast.warning("อีเมลโรงเรียนต้องลงท้ายด้วย @chomthong.ac.th");return false;}
-      if(!isNdlpEmail(ndlpEmail)){toast.warning("อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");return false;}
+      if(!isNonThaiIdentityId(pii.citizenId)&&!isNdlpEmail(ndlpEmail)){toast.warning("อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th");return false;}
       if(!isValidStudentIdentityId(pii.citizenId)){toast.warning("เลขประจำตัวไม่ถูกต้อง กรุณาตรวจเลขคนไทย 13 หลัก รหัส G เลขต่างด้าว หรือ Passport");return false;}
       if(!pii.houseNo||!pii.province||!pii.district||!pii.subdistrict||!/^\d{5}$/.test(pii.postalCode)){toast.warning("กรุณากรอกที่อยู่ตามทะเบียนบ้านให้ครบ");return false;}
       const guardian=parseGuardianFullName(pii.guardianFullName);
@@ -201,7 +202,7 @@ export function StudentSurveyApp(){
         <label className="field"><span><FontAwesomeIcon icon={faPhone}/> เบอร์โทรศัพท์นักเรียน<b>*</b></span><input inputMode="tel" maxLength={10} placeholder="เช่น 0812345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,""))}/></label>
         {decision==="ACCEPT"&&<label className="field"><span>เลขประจำตัวประชาชน / รหัส G / Passport<b>*</b></span><input inputMode="text" autoCapitalize="characters" maxLength={13} placeholder="เลข 13 หลัก รหัส G หรือ Passport" value={pii.citizenId} onChange={e=>setPii(current=>({...current,citizenId:normalizeStudentIdentityId(e.target.value).slice(0,13)}))}/><small className="field-hint">คนไทยตรวจสอบเลข 13 หลักตามหลักการ และรองรับรหัส G เลขบุคคลไม่มีสัญชาติไทย หรือ Passport</small></label>}
         {decision==="ACCEPT"&&<label className="field"><span>อีเมลโรงเรียน<b>*</b></span><input type="email" pattern={SCHOOL_EMAIL_PATTERN} title="ต้องใช้อีเมล @chomthong.ac.th" placeholder="name@chomthong.ac.th" value={email} onChange={e=>setEmail(e.target.value)}/></label>}
-        {decision==="ACCEPT"&&<label className="field"><span>อีเมล NDLP<b>*</b></span><input type="email" pattern={NDLP_EMAIL_PATTERN} title="ต้องใช้อีเมล @ndlp.go.th" placeholder="name@ndlp.go.th" value={ndlpEmail} onChange={e=>setNdlpEmail(e.target.value)}/><small className="field-hint">หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา</small></label>}
+        {decision==="ACCEPT"&&<label className="field"><span>อีเมล NDLP{isNonThaiIdentityId(pii.citizenId)?<small> (ไม่บังคับ)</small>:<b>*</b>}</span><input type="email" pattern={NDLP_EMAIL_PATTERN} title="ต้องใช้อีเมล @ndlp.go.th" placeholder="name@ndlp.go.th" value={ndlpEmail} onChange={e=>setNdlpEmail(e.target.value)}/><small className="field-hint">{isNonThaiIdentityId(pii.citizenId)?"นักเรียนต่างชาติไม่จำเป็นต้องกรอกอีเมล NDLP":"หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา"}</small></label>}
       </div>
       {decision==="ACCEPT"&&<>
         <div className="form-heading"><span>2</span><div><h2>ข้อมูลผู้ปกครอง</h2><p>กรอกชื่อพร้อมคำนำหน้า ระบบจะแยกข้อมูลให้อัตโนมัติ</p></div></div>

@@ -33,3 +33,12 @@ export function isValidStudentIdentityId(value: string): boolean {
     return !/^([A-Z0-9])\1+$/.test(normalized);
   return isValidThaiCitizenId(normalized);
 }
+
+/** Returns true for a non-Thai registry number or a passport number. */
+export function isNonThaiIdentityId(value: string): boolean {
+  const normalized = normalizeStudentIdentityId(value);
+  if (!isValidStudentIdentityId(normalized)) return false;
+  if (/^0\d{12}$/.test(normalized)) return true;
+  return /^(?=.*[A-Z])[A-Z0-9]{6,13}$/.test(normalized)
+    && !/^G\d{12}$/.test(normalized);
+}

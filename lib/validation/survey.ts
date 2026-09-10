@@ -6,11 +6,13 @@ import {
 import { guardianPrefixOptions } from "@/lib/data/student-options";
 import { isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
 import {
+  isNonThaiIdentityId,
   isValidStudentIdentityId,
   normalizeStudentIdentityId,
 } from "@/lib/validation/student-identity";
 
 export {
+  isNonThaiIdentityId,
   isValidStudentIdentityId,
   isValidThaiCitizenId,
   normalizeStudentIdentityId,
@@ -46,7 +48,7 @@ export const teacherProfileSchema = z.object({
     error: "กรุณาเลือกวิทยฐานะ",
   }),
   email: schoolEmailSchema,
-  ndlpEmail: ndlpEmailSchema,
+  ndlpEmail: z.union([z.literal(""), ndlpEmailSchema]),
   phone: z.string().regex(/^0(?:6|8|9)\d{8}$|^0(?:2|3|4|5|7)\d{7}$/, "กรุณากรอกหมายเลขโทรศัพท์ประเทศไทยให้ถูกต้อง"),
 });
 export const surveySubmitSchema = z.object({
@@ -129,7 +131,7 @@ export const studentSubmitSchema = z.object({
     context.addIssue({ code: "custom", message: "กรุณารับทราบการใช้ข้อมูลส่วนบุคคล", path: ["privacyAcknowledged"] });
   if (value.decision === "ACCEPT" && !value.email)
     context.addIssue({ code: "custom", message: "กรุณากรอกอีเมลโรงเรียน", path: ["email"] });
-  if (value.decision === "ACCEPT" && !value.ndlpEmail)
+  if (value.decision === "ACCEPT" && !value.ndlpEmail && value.pii && !isNonThaiIdentityId(value.pii.citizenId))
     context.addIssue({ code: "custom", message: "กรุณากรอกอีเมล NDLP", path: ["ndlpEmail"] });
 });
 
