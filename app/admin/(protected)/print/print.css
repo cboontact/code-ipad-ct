@@ -8,7 +8,11 @@
 .print-stage.print-embed{margin:0;padding:20px;min-height:100vh}
 .print-embed .print-toolbar{display:none}
 .print-toolbar{max-width:216mm;margin:0 auto 18px;background:#fff;border-radius:14px;padding:12px 15px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 20px rgba(20,48,70,.12)}
-.print-toolbar div{display:flex;flex-direction:column}.print-toolbar small{color:#64748b}
+.print-toolbar>div:first-child{display:flex;flex-direction:column}.print-toolbar small{color:#64748b}
+.print-toolbar-actions{display:flex;flex-direction:row!important;align-items:center;gap:10px}
+.print-document-language{display:flex;flex-direction:row!important;padding:3px;border:1px solid #d7e2eb;border-radius:10px;background:#f4f7fa}
+.print-document-language button{border:0;border-radius:7px;background:transparent;color:#526577;padding:7px 10px;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.print-document-language button.active{background:#fff;color:#0875bb;box-shadow:0 1px 5px rgba(20,48,70,.14)}
 
 .awat-page{position:relative;width:216mm;min-height:279mm;margin:0 auto 24px;background:#fff;color:#000;padding:11mm 18mm 14mm 32mm;font-family:"TH Sarabun New","Sarabun New",sans-serif;font-size:20px;line-height:1.22;box-shadow:0 10px 28px rgba(21,50,72,.15);page-break-after:always}
 .awat-page:last-child{page-break-after:auto}
@@ -43,5 +47,12 @@
 .awat-line.student-grade{min-width:24mm}.awat-line.student-room{min-width:24mm}.awat-line.student-code{min-width:48mm}
 .awat-line.student-phone{min-width:40mm}.awat-line.guardian-phone{min-width:40mm}
 .student-signatures{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:6mm;row-gap:5mm;margin-top:4mm}
+.awat-page-en{font-family:Arial,"Noto Sans",sans-serif;font-size:14px;line-height:1.32}
+.awat-page-en header h1,.awat-page-en header h2{font-family:Arial,"Noto Sans",sans-serif;font-size:17px;line-height:1.2}
+.awat-page-en .awat-code{font-family:Arial,"Noto Sans",sans-serif;font-size:13px}
+.awat-page-en .awat-line.model{font-size:13px}
+.awat-page-en .digit-boxes i{font-size:13px}
+.awat-page-en .awat-list li{margin:2.2mm 0}
+.awat-page-en .signature-stack{gap:6mm}
 @page{size:Letter portrait;margin:0}
 @media print{html,body{background:#fff!important}.print-stage{margin:0!important;padding:0!important;background:#fff!important}.awat-page{margin:0!important;box-shadow:none!important;width:216mm;height:279mm;min-height:279mm;overflow:hidden}.admin-shell{display:block!important}.admin-content{padding:0!important}.site-header,.admin-sidebar,.print-toolbar{display:none!important}}

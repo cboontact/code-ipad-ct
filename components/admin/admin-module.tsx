@@ -59,6 +59,7 @@ import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 import { downloadCsv, writeXlsxRows } from "@/lib/spreadsheet-client";
 import { ImportWizard } from "@/components/admin/import-wizard";
+import { LanguageSwitcher, useLanguage } from "@/components/language-provider";
 import {
   academicRankOptions,
   positionOptions,
@@ -960,6 +961,7 @@ function PrintPreviewModal({
   close: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const { language } = useLanguage();
   return (
     <div
       className="modal-backdrop print-preview-backdrop"
@@ -980,6 +982,7 @@ function PrintPreviewModal({
             <h2 id="print-preview-title">{batch ? "แบบฟอร์ม AWAT-03 แบบชุด" : "แบบฟอร์ม AWAT-03"}</h2>
           </div>
           <div className="print-preview-actions">
+            <LanguageSwitcher compact />
             <button
               className="button primary"
               onClick={() => frame.current?.contentWindow?.print()}
@@ -999,7 +1002,7 @@ function PrintPreviewModal({
         <iframe
           ref={frame}
           title={batch ? "ตัวอย่างแบบฟอร์ม AWAT-03 แบบชุด" : "ตัวอย่างแบบฟอร์ม AWAT-03"}
-          src={batch ? "/admin/print/batch?embed=1" : `/admin/print/${teacherId}?embed=1`}
+          src={batch ? `/admin/print/batch?embed=1&lang=${language}` : `/admin/print/${teacherId}?embed=1&lang=${language}`}
         />
       </section>
     </div>

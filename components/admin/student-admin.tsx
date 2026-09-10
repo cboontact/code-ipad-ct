@@ -33,6 +33,7 @@ import { downloadCsv, readTabularFile, writeXlsxRows, type SpreadsheetRow } from
 import { normalizeStudentGrade, normalizeStudentRoom, studentGradeOptions, studentRoomOptions } from "@/lib/data/student-options";
 import { isGuardianNameSameAsStudent, parseGuardianFullName } from "@/lib/validation/survey";
 import { NDLP_EMAIL_PATTERN, SCHOOL_EMAIL_PATTERN } from "@/lib/validation/email-domains";
+import { LanguageSwitcher, useLanguage } from "@/components/language-provider";
 
 type Row = Record<string, unknown>;
 type Editor = { id?: string; data: Row; startEditing?: boolean };
@@ -69,6 +70,7 @@ function mapImportRow(row: SpreadsheetRow): Row {
 }
 
 export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" }) {
+  const { language } = useLanguage();
   const resultsView = view === "results";
   const [rows,setRows] = useState<Row[]>([]), [totals,setTotals] = useState<Row>({}), [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false), [search,setSearch] = useState(""), [grade,setGrade] = useState(""), [room,setRoom] = useState(""), [status,setStatus] = useState(""), [approval,setApproval] = useState(""), [editor,setEditor] = useState<Editor|null>(null);
@@ -235,7 +237,7 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
         }}
       />
     )}
-    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__batch__"?batchPrintUrl:`/admin/print/student/${printId}?embed=1`}/></section></div>}
+    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><LanguageSwitcher compact/><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__batch__"?`${batchPrintUrl}&lang=${language}`:`/admin/print/student/${printId}?embed=1&lang=${language}`}/></section></div>}
   </>;
 }
 
