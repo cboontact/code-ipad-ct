@@ -58,8 +58,8 @@ export function SurveyAudienceGateway(){
         <div>
           <span className="eyebrow"><FontAwesomeIcon icon={faGraduationCap}/> {hero.heroEyebrow}</span>
           <h1>
-            <span className="hero-registration-line">{language === "en" ? "Register for an" : hero.heroTitle}</span>
-            <span className="hero-title-line"><em>{hero.heroProductName}</em> {language === "en" ? "learning loan" : hero.heroProductSuffix} <strong className="free-label">{language === "en" ? "FREE!" : hero.heroFreeLabel}</strong></span>
+            <span className="hero-registration-line">{language === "en" ? "Register to borrow an" : hero.heroTitle}</span>
+            <span className="hero-title-line"><em>{hero.heroProductName}</em> {language === "en" ? "for learning" : hero.heroProductSuffix} <strong className="free-label">{language === "en" ? "FREE!" : hero.heroFreeLabel}</strong></span>
             <span className="hero-audience-line">{language === "en" ? "For teachers and students of Chomthong School" : hero.heroAudience}</span>
           </h1>
           <div className="hero-actions">

@@ -11,7 +11,7 @@ const STORAGE_KEY = "ipad-app-language";
 const COOKIE_KEY = "ipad_language";
 
 const translations: Record<string, string> = {
-  "ระบบลงทะเบียนรับ iPad": "iPad Loan Registration",
+  "ระบบลงทะเบียนรับ iPad": "iPad Borrowing for Learning",
   "โรงเรียนจอมทอง · สพม.เชียงใหม่": "Chomthong School · Chiang Mai SESA",
   "โรงเรียนจอมทอง": "Chomthong School",
   "ลงทะเบียน": "Register",
@@ -27,7 +27,7 @@ const translations: Record<string, string> = {
   "สงวนลิขสิทธิ์": "All rights reserved",
   "เทคโนโลยีที่ใช้พัฒนาระบบ": "Technologies used",
   "ลงทะเบียนรับ": "Register for an",
-  "ยืมเรียน": "learning loan",
+  "ยืมเรียน": "for learning",
   "ฟรี!!!": "FREE!",
   "สำหรับครูและนักเรียนโรงเรียนจอมทอง": "For teachers and students of Chomthong School",
   "ดูรายละเอียด": "View details",
@@ -356,7 +356,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.language = language;
     const titles: Record<AppLanguage, Record<string, string>> = {
       en: {
-        "/": "iPad Loan Registration | Chomthong School",
+        "/": "Borrow an iPad for Learning | Chomthong School",
         "/teacher": "Teacher iPad Registration | Chomthong School",
         "/student": "Student iPad Registration | Chomthong School",
         "/project": "News & Project Information | Chomthong School",

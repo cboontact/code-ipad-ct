@@ -74,7 +74,7 @@ export function SiteHeader() {
             unoptimized
           />
           <span>
-            <strong>{t("ระบบลงทะเบียนรับ iPad", "iPad Loan Registration")}</strong>
+            <strong>{t("ระบบลงทะเบียนรับ iPad", "iPad Borrowing for Learning")}</strong>
             <small>{t("โรงเรียนจอมทอง · สพม.เชียงใหม่", "Chomthong School · Chiang Mai SESA")}</small>
           </span>
         </Link>
