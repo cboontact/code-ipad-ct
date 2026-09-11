@@ -113,4 +113,5 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(languageProvider, /"ท่านมีความประสงค์รับ iPad": "Would you like to receive an iPad"/);
   assert.match(languageProvider, /"ตามโครงการหรือไม่": "under this project\?"/);
   assert.match(languageProvider, /characterData: true/);
+  assert.match(languageProvider, /current !== translateTextValue\(original\)/);
 });

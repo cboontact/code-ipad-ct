@@ -227,7 +227,7 @@ const translations: Record<string, string> = {
   "iPad สำหรับนักเรียน": "iPads for students",
   "จำนวนเครื่องที่ยังว่าง": "Devices available",
   "เครื่อง": "devices",
-  "ครู": "teachers",
+  "ครู": "Teacher",
   "คน": "people",
   "% สำเร็จ": "% complete",
   "ม.ต้น": "Lower secondary",
@@ -481,10 +481,19 @@ function LegacyLanguageTranslator({ language }: { language: AppLanguage }) {
       while ((node = walker.nextNode())) {
         const parent = node.parentElement;
         if (!parent || parent.closest("script,style,[data-no-auto-translate]")) continue;
-        const original = originals.current.get(node) ?? node.textContent ?? "";
-        if (!originals.current.has(node)) originals.current.set(node, original);
+        const current = node.textContent ?? "";
+        let original = originals.current.get(node);
+        if (original === undefined) {
+          original = current;
+          originals.current.set(node, original);
+        } else if (current !== original && current !== translateTextValue(original)) {
+          // React may reuse a text node for a new step or live counter. Keep its
+          // new source text instead of restoring the value captured previously.
+          original = current;
+          originals.current.set(node, original);
+        }
         const next = language === "en" ? translateTextValue(original) : original;
-        if (node.textContent !== next) node.textContent = next;
+        if (current !== next) node.textContent = next;
       }
       document.querySelectorAll("[placeholder],[aria-label],[title]").forEach((element) => {
         let saved = attributeOriginals.current.get(element);
@@ -495,8 +504,14 @@ function LegacyLanguageTranslator({ language }: { language: AppLanguage }) {
         attributes.forEach((attribute) => {
           const current = element.getAttribute(attribute);
           if (current === null) return;
-          if (!saved!.has(attribute)) saved!.set(attribute, current);
-          const original = saved!.get(attribute)!;
+          let original = saved!.get(attribute);
+          if (original === undefined) {
+            original = current;
+            saved!.set(attribute, original);
+          } else if (current !== original && current !== translateTextValue(original)) {
+            original = current;
+            saved!.set(attribute, original);
+          }
           const next = language === "en" ? translateTextValue(original) : original;
           if (current !== next) element.setAttribute(attribute, next);
         });
