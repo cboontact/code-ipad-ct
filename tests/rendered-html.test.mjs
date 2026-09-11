@@ -40,12 +40,14 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, studentAdmin, documentCheckin, documentCheckinApi, documentMigration, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
+  const [css, home, project, ipadVisual, studentAdmin, studentAdminApi, studentVerifyApi, documentCheckin, documentCheckinApi, documentMigration, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
     readFile(new URL("components/public/ipad-product-visual.tsx", root), "utf8"),
     readFile(new URL("components/admin/student-admin.tsx", root), "utf8"),
+    readFile(new URL("app/api/admin/students/route.ts", root), "utf8"),
+    readFile(new URL("app/api/public/students/verify/route.ts", root), "utf8"),
     readFile(new URL("components/admin/document-checkin.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/document-checkin/route.ts", root), "utf8"),
     readFile(new URL("migrations/0019_add_student_document_checkin.sql", root), "utf8"),
@@ -76,6 +78,11 @@ test("ships responsive styles and the current registration experience", async ()
   assert.doesNotMatch(ipadVisual, /unoptimized/);
   assert.match(studentAdmin, /const visibleTotals = useMemo/);
   assert.match(studentAdmin, /void load\(\{ silent: true \}\)/);
+  assert.match(studentAdmin, /เปิดใช้งานรายชื่อนักเรียน/);
+  assert.match(studentAdmin, /data\.isActive=isActive/);
+  assert.match(studentAdminApi, /data\.isActive===false\?0:1/);
+  assert.match(studentAdminApi, /ปิดใช้งานนักเรียนไม่ได้ เนื่องจากยังถือเครื่องอยู่/);
+  assert.match(studentVerifyApi, /s\.is_active=1/);
   assert.match(documentCheckin, /ตรวจรับเอกสารแบบรวดเร็ว/);
   assert.match(documentCheckin, /กดอีกครั้งเพื่อยืนยันรับเอกสาร/);
   assert.match(documentCheckin, /ตรวจเอกสารรายห้อง/);

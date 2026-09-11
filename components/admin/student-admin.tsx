@@ -209,8 +209,8 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
         {!resultsView&&<button className="button secondary" onClick={()=>setEditor({data:{prefix:"เด็กชาย",is_active:1},startEditing:true})}><FontAwesomeIcon icon={faPlus}/> เพิ่มนักเรียน</button>}
       </div>
       {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดข้อมูล...</div> :
-      <div className="admin-table-wrap student-admin-table-wrap"><table className={`admin-table student-admin-table${resultsView?" student-results-table":""}`}><thead><tr><th>รหัสนักเรียน</th><th>ชื่อ-นามสกุล</th><th>ชั้น / ห้อง / เลขที่</th><th>การลงทะเบียน</th>{resultsView&&<><th>ผลอนุมัติ</th><th>วันที่ตอบ</th></>}<th>จัดการ</th></tr></thead>
-      <tbody>{pagedRows.map(row=><tr key={s(row.id)} className={Number(row.is_active)===0?"inactive-row":""}><td><b>{s(row.student_code)}</b></td><td>{s(row.prefix)}{s(row.first_name)} {s(row.last_name)}</td><td>{s(row.grade_level)}/{s(row.room)}{s(row.class_number)?` เลขที่ ${s(row.class_number)}`:""}</td><td><Status value={s(row.survey_status)}/></td>{resultsView&&<><td><ApprovalStatus decision={s(row.survey_status)} value={s(row.approval_status)}/></td><td>{row.submitted_at?new Date(s(row.submitted_at)).toLocaleString("th-TH"):"—"}</td></>}<td><div className="table-actions">
+      <div className="admin-table-wrap student-admin-table-wrap"><table className={`admin-table student-admin-table${resultsView?" student-results-table":""}`}><thead><tr><th>รหัสนักเรียน</th><th>ชื่อ-นามสกุล</th><th>ชั้น / ห้อง / เลขที่</th><th>การลงทะเบียน</th>{!resultsView&&<th>สถานะรายชื่อ</th>}{resultsView&&<><th>ผลอนุมัติ</th><th>วันที่ตอบ</th></>}<th>จัดการ</th></tr></thead>
+      <tbody>{pagedRows.map(row=><tr key={s(row.id)} className={Number(row.is_active)===0?"inactive-row":""}><td><b>{s(row.student_code)}</b></td><td>{s(row.prefix)}{s(row.first_name)} {s(row.last_name)}</td><td>{s(row.grade_level)}/{s(row.room)}{s(row.class_number)?` เลขที่ ${s(row.class_number)}`:""}</td><td><Status value={s(row.survey_status)}/></td>{!resultsView&&<td><ActiveStatus active={Number(row.is_active)!==0}/></td>}{resultsView&&<><td><ApprovalStatus decision={s(row.survey_status)} value={s(row.approval_status)}/></td><td>{row.submitted_at?new Date(s(row.submitted_at)).toLocaleString("th-TH"):"—"}</td></>}<td><div className="table-actions">
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="APPROVED"&&<button className="icon-button approval-approve-button" title="อนุมัติการรับ iPad" aria-label="อนุมัติการรับ iPad" disabled={busy} onClick={()=>void act("approve",s(row.id))}><FontAwesomeIcon icon={faCircleCheck}/></button>}
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="REJECTED"&&<button className="icon-button approval-reject-button" title="ไม่อนุมัติการรับ iPad" aria-label="ไม่อนุมัติการรับ iPad" disabled={busy} onClick={()=>{if(confirm(`ยืนยันไม่อนุมัติการรับ iPad ของ ${s(row.first_name)} ${s(row.last_name)} หรือไม่`))void act("reject",s(row.id));}}><FontAwesomeIcon icon={faBan}/></button>}
         <button className="icon-button" title={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} aria-label={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} onClick={()=>void openEditor(row)}><FontAwesomeIcon icon={resultsView?faUser:faPen}/></button>
@@ -248,6 +248,9 @@ function Status({value}:{value:string}) {
   const icon=value==="ACCEPT"?faCircleCheck:value==="DECLINE"?faBan:faClock;
   return <span className={`badge ${cls}`}><FontAwesomeIcon icon={icon}/>{text}</span>;
 }
+function ActiveStatus({active}:{active:boolean}) {
+  return <span className={`badge ${active?"accept":"pending"}`}><FontAwesomeIcon icon={active?faCircleCheck:faBan}/>{active?"เปิดใช้งาน":"ปิดใช้งาน"}</span>;
+}
 function ApprovalStatus({decision,value}:{decision:string;value:string}) {
   if(decision!=="ACCEPT")return <span className="badge pending" title="ไม่เกี่ยวข้อง"><FontAwesomeIcon icon={faBan}/>—</span>;
   const status=value||"PENDING";
@@ -262,7 +265,8 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
   const gradeValue=normalizeStudentGrade(initial.grade_level);
   const roomValue=normalizeStudentRoom(initial.room);
   const [editing,setEditing]=useState(value.startEditing??!value.id);
-  async function submit(event:FormEvent<HTMLFormElement>) { event.preventDefault(); const fd=new FormData(event.currentTarget),data=Object.fromEntries(fd); if(hasAwat){const guardian=parseGuardianFullName(s(data.guardianFullName));if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return;}if(isGuardianNameSameAsStudent(guardian.name,`${s(data.firstName)} ${s(data.lastName)}`)){toast.warning("ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง");return;}data.guardianPrefix=guardian.prefix;data.guardianName=guardian.name;delete data.guardianFullName;} await save(data); }
+  const [isActive,setIsActive]=useState(initial.is_active===undefined?true:Number(initial.is_active)!==0);
+  async function submit(event:FormEvent<HTMLFormElement>) { event.preventDefault(); const fd=new FormData(event.currentTarget),data:Row=Object.fromEntries(fd); data.isActive=isActive; if(hasAwat){const guardian=parseGuardianFullName(s(data.guardianFullName));if(!guardian){toast.warning("กรุณากรอกชื่อผู้ปกครองพร้อมคำนำหน้า นาย นาง หรือนางสาว");return;}if(isGuardianNameSameAsStudent(guardian.name,`${s(data.firstName)} ${s(data.lastName)}`)){toast.warning("ชื่อผู้ปกครองต้องไม่เป็นชื่อเดียวกับนักเรียน กรุณาตรวจสอบอีกครั้ง");return;}data.guardianPrefix=guardian.prefix;data.guardianName=guardian.name;delete data.guardianFullName;} await save(data); }
   const fullName=`${s(initial.prefix)}${s(initial.first_name)} ${s(initial.last_name)}`.trim();
   return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)close()}}><section className="modal teacher-editor-modal editor-modal student-editor-modal" onMouseDown={event=>event.stopPropagation()}><header className="student-editor-header"><div className="student-editor-title"><span><FontAwesomeIcon icon={faUserGraduate}/></span><div><small>{!value.id?"เพิ่มรายชื่อใหม่":editing?"แก้ไขข้อมูลเดิม":"ข้อมูลนักเรียนและการลงทะเบียน"}</small><h2>{!value.id?"เพิ่มนักเรียน":editing?"แก้ไขข้อมูลนักเรียน":fullName}</h2></div></div><button className="icon-button" onClick={close} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></header>{editing?<form onSubmit={submit} className="admin-form-grid student-editor-form">
     {value.id&&<div className="student-editor-advisor full"><span><FontAwesomeIcon icon={faUserTie}/></span><div><small>ครูที่ปรึกษา</small><b>{s(initial.advisor_name)||"ยังไม่ได้กำหนดครูที่ปรึกษา"}</b></div></div>}
@@ -292,6 +296,11 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
       <label className="field"><span>จังหวัด <b>*</b></span><input name="province" defaultValue={s(initial.province)} required/></label>
       <label className="field"><span>รหัสไปรษณีย์ <b>*</b></span><input name="postalCode" inputMode="numeric" maxLength={5} defaultValue={s(initial.postalCode)} required/></label>
     </>}
+    <label className="admin-active-toggle full">
+      <input type="checkbox" checked={isActive} onChange={event=>setIsActive(event.target.checked)}/>
+      <span className="admin-toggle-track" aria-hidden="true"/>
+      <span>{isActive?"เปิดใช้งานรายชื่อนักเรียน":"ปิดใช้งานรายชื่อนักเรียน"}</span>
+    </label>
     <div className="modal-actions full"><button type="button" className="button secondary" onClick={()=>value.id?setEditing(false):close()}>ยกเลิก</button><button className="button primary" disabled={busy}><FontAwesomeIcon icon={busy?faSpinner:faFloppyDisk} spin={busy}/> บันทึก</button></div>
   </form>:<div className="student-registration-detail">
     <div className="student-registration-summary">
@@ -300,6 +309,7 @@ function StudentEditor({value,busy,close,save,print,reopen,reset}:{value:Editor;
     </div>
     <div className="student-registration-detail-grid">
       <StudentDetailInfo label="สถานะการลงทะเบียน"><Status value={s(initial.decision)||"PENDING"}/></StudentDetailInfo>
+      <StudentDetailInfo label="สถานะรายชื่อ"><ActiveStatus active={Number(initial.is_active)!==0}/></StudentDetailInfo>
       <StudentDetailInfo label="ผลอนุมัติ"><ApprovalStatus decision={s(initial.decision)} value={s(initial.approval_status)}/></StudentDetailInfo>
       <StudentDetailInfo label="วันที่ตอบ">{initial.submitted_at?new Date(s(initial.submitted_at)).toLocaleString("th-TH"):"—"}</StudentDetailInfo>
       <StudentDetailInfo label="ครูที่ปรึกษา">{s(initial.advisor_name)||"ยังไม่ได้กำหนด"}</StudentDetailInfo>
