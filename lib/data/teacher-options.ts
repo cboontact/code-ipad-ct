@@ -2,6 +2,7 @@ export const positionOptions = [
   "ผู้บริหาร",
   "ครู",
   "ครูอัตราจ้าง",
+  "เจ้าหน้าที่",
 ] as const;
 
 export const academicRankOptions = [
