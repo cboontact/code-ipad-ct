@@ -99,7 +99,6 @@ export async function GET(request: Request) {
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
       const accepted = student.public_locked === 1 && student.decision === "ACCEPT";
       const rejected = student.approval_status === "REJECTED";
-      const documentReceived = student.document_status === "RECEIVED";
       const hasActiveHandover = student.handover_status === "ACTIVE";
       return json({
         student: {
@@ -110,14 +109,12 @@ export async function GET(request: Request) {
             : rejected
               ? "รายการรับ iPad ของนักเรียนไม่ได้รับอนุมัติ"
               : null,
-          withdrawEligible: accepted && !rejected && documentReceived && !hasActiveHandover,
+          withdrawEligible: accepted && !rejected && !hasActiveHandover,
           withdrawReason: !accepted
             ? "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad"
             : rejected
               ? "รายการนี้ถูกเปลี่ยนเป็นไม่รับ iPad แล้ว"
-              : !documentReceived
-                ? "ยังไม่มีประวัติรับเอกสารของนักเรียนคนนี้"
-                : hasActiveHandover
+              : hasActiveHandover
                   ? "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ"
                   : null,
         },
@@ -226,12 +223,12 @@ export async function POST(request: Request) {
       if (!student) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 404);
       if (student.active_handover === 1)
         return json({ error: "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ" }, 409);
-      if (student.document_received !== 1)
-        return json({ error: "ยังไม่มีประวัติรับเอกสารของนักเรียนคนนี้" }, 409);
       if (student.public_locked !== 1 || student.decision !== "ACCEPT" || student.approval_status === "REJECTED")
         return json({ error: "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad หรือเปลี่ยนสถานะไปแล้ว" }, 409);
 
-      const note = "เปลี่ยนใจไม่รับ iPad หลังส่งเอกสารแล้ว";
+      const note = student.document_received === 1
+        ? "เปลี่ยนใจไม่รับ iPad หลังส่งเอกสารแล้ว"
+        : "เปลี่ยนใจไม่รับ iPad โดยยังไม่ได้ส่งเอกสาร";
       const updated = await db.prepare(`UPDATE student_survey_responses SET
           decision='DECLINE',approval_status='REJECTED',approved_at=?,approved_by=?,approval_note=?,
           updated_at=?,updated_by_admin_id=?
@@ -244,7 +241,7 @@ export async function POST(request: Request) {
         (id,student_id,document_type,action,note,processed_by,created_at)
         VALUES (?,?,?,'WITHDRAW',?,?,?)`).bind(id(), student.id, DOCUMENT_TYPE, note, admin.id, stamp).run();
       await audit(db, admin.id, "STUDENT_WITHDRAW_AFTER_DOCUMENT", "student_survey_response", student.id,
-        `เปลี่ยนเป็นไม่รับ iPad หลังส่งเอกสาร รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`);
+        `เปลี่ยนเป็นไม่รับ iPad (${student.document_received === 1 ? "ส่งเอกสารแล้ว" : "ยังไม่ส่งเอกสาร"}) รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`);
       return json({ success: true, studentId: student.id, decision: "DECLINE", approvalStatus: "REJECTED" });
     }
 

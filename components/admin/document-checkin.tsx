@@ -312,7 +312,7 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
           <div className="document-quick-layout document-withdraw-layout">
             <div className="document-quick-entry">
               <span className="document-quick-icon withdraw"><FontAwesomeIcon icon={faUserXmark}/></span>
-              <div><h2>เปลี่ยนใจไม่รับ iPad</h2><p>{quickReadyToWithdraw ? "ตรวจสอบชื่อแล้วกด Enter อีกครั้งเพื่อยืนยัน" : "สำหรับนักเรียนที่ส่งเอกสารแล้ว แต่ขอเปลี่ยนเป็นไม่รับ iPad"}</p></div>
+              <div><h2>เปลี่ยนใจไม่รับ iPad</h2><p>{quickReadyToWithdraw ? "ตรวจสอบชื่อแล้วกด Enter อีกครั้งเพื่อยืนยัน" : "ดำเนินการได้ทั้งนักเรียนที่ส่งเอกสารแล้วและยังไม่ได้ส่งเอกสาร"}</p></div>
               <form onSubmit={lookup}>
                 <label className="field"><span>เลขประจำตัวนักเรียน</span><input ref={codeInput} autoFocus inputMode="numeric" autoComplete="off" value={studentCode} onChange={(event) => { const nextCode = event.target.value; setStudentCode(nextCode); if (quickStudent && text(quickStudent.student_code) !== nextCode.trim()) setQuickStudent(null); }} placeholder="เช่น 23964"/></label>
                 <button className="button danger-solid" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : quickReadyToWithdraw ? faUserXmark : faMagnifyingGlass} spin={busy}/> {busy ? "กำลังดำเนินการ..." : quickReadyToWithdraw ? "ยืนยันไม่รับ iPad" : "ตรวจสอบ"}</button>

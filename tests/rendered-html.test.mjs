@@ -101,6 +101,7 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(documentCheckinApi, /CANCEL_STUDENT_DOCUMENT/);
   assert.match(documentCheckinApi, /STUDENT_WITHDRAW_AFTER_DOCUMENT/);
   assert.match(documentCheckinApi, /กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ/);
+  assert.doesNotMatch(documentCheckinApi, /if \(student\.document_received !== 1\)/);
   assert.match(documentMigration, /student_document_receipt_events/);
   assert.match(documentWithdrawMigration, /'WITHDRAW'/);
   assert.match(recipientPrint, /รายชื่อนักเรียนผู้ยืนยันรับ iPad/);
