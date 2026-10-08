@@ -19,14 +19,16 @@ export default async function StudentRecipientListPage({searchParams}:{searchPar
   const language = documentLanguage(lang,cookieStore.get("ipad_language")?.value);
   const {rows,settings,advisorNames} = await getStudentRecipientList({search,grade,room,approval});
   const en = language === "en";
+  const configuredSchoolName = settings.school_name.trim();
+  const schoolName = configuredSchoolName.startsWith("โรงเรียน") ? configuredSchoolName : `โรงเรียน${configuredSchoolName}`;
   const filterText = [grade,room ? `${en?"Room":"ห้อง"} ${room}` : ""].filter(Boolean).join(" / ");
   return <div className={`print-stage recipient-list-stage${embed==="1"?" print-embed":""}`}>
     <div className="print-toolbar no-print"><div><b>{en?"Student iPad Recipient List":"รายชื่อนักเรียนผู้ยืนยันรับ iPad"}</b><small>{rows.length.toLocaleString(en?"en-US":"th-TH")} {en?"students":"คน"}</small></div><PrintButton language={language}/></div>
     <article className="recipient-list-page">
       <header>
         <img className="recipient-list-logo" src="/api/public/logo" width="68" height="68" alt={en?"School logo":"ตราสัญลักษณ์โรงเรียน"}/>
+        <h2>{schoolName}</h2>
         <h1>{en?"Student iPad Recipient List":"รายชื่อนักเรียนผู้ยืนยันรับ iPad"}</h1>
-        <h2>{settings.school_name}</h2>
         <p>{filterText || (en?"All grade levels and rooms":"ทุกระดับชั้นและทุกห้อง")} · {en?"Total":"รวม"} {rows.length.toLocaleString(en?"en-US":"th-TH")} {en?"students":"คน"}</p>
         {grade&&room&&<p className="recipient-list-advisors"><b>{en?"Class advisor":"ครูที่ปรึกษา"}</b> {advisorNames.length?advisorNames.join(" / "):(en?"Not assigned":"ยังไม่ได้กำหนด")}</p>}
       </header>
