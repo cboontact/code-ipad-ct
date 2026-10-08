@@ -133,6 +133,7 @@ export async function getStudentRecipientList(filters: StudentPrintFilters = {})
     "r.decision='ACCEPT'",
     "r.public_locked=1",
     "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
+    "dr.status='RECEIVED'",
   ];
   const values: string[] = [];
   const grade = filters.grade?.trim();

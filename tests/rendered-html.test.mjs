@@ -40,7 +40,7 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, teacherOptions, studentAdmin, studentAdminApi, studentVerifyApi, documentCheckin, documentCheckinApi, documentMigration, documentWithdrawMigration, recipientPrint, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
+  const [css, home, project, ipadVisual, teacherOptions, studentAdmin, studentAdminApi, studentVerifyApi, documentCheckin, documentCheckinApi, documentMigration, documentWithdrawMigration, recipientPrint, studentPrintData, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
@@ -54,6 +54,7 @@ test("ships responsive styles and the current registration experience", async ()
     readFile(new URL("migrations/0019_add_student_document_checkin.sql", root), "utf8"),
     readFile(new URL("migrations/0022_add_document_withdraw_event.sql", root), "utf8"),
     readFile(new URL("app/admin/(protected)/print/student-recipients/page.tsx", root), "utf8"),
+    readFile(new URL("lib/db/student-print.ts", root), "utf8"),
     readFile(new URL("components/admin/device-handovers.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/device-handovers/route.ts", root), "utf8"),
     readFile(new URL("migrations/0020_add_student_device_handovers.sql", root), "utf8"),
@@ -118,6 +119,7 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(recipientPrint, /displayedAdvisors\.map/);
   assert.match(recipientPrint, /`\$\{grade\}\/\$\{room\}`/);
   assert.doesNotMatch(recipientPrint, /พิมพ์เมื่อ|Printed/);
+  assert.match(studentPrintData, /dr\.status='RECEIVED'/);
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);
