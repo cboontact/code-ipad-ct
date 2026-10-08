@@ -108,6 +108,8 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(recipientPrint, /documentReceived/);
   assert.match(recipientPrint, /\/api\/public\/logo/);
   assert.doesNotMatch(recipientPrint, /en\?"Device":"รับเครื่อง"/);
+  assert.match(recipientPrint, /ครูที่ปรึกษา/);
+  assert.match(recipientPrint, /advisorNames/);
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);

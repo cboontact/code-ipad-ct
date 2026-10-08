@@ -178,5 +178,15 @@ export async function getStudentRecipientList(filters: StudentPrintFilters = {})
     deviceReceived: row.device_received === 1,
     handedOverAt: row.handed_over_at ?? "",
   }));
-  return { rows, settings };
+  let advisorNames: string[] = [];
+  if (grade && room) {
+    const advisors = await db.prepare(`SELECT t.prefix,t.first_name,t.last_name
+      FROM class_advisors ca
+      JOIN teachers t ON t.id=ca.teacher_id
+      WHERE ca.grade_level=? AND ca.room=? AND t.is_active=1
+      ORDER BY ca.advisor_order,t.sort_order,t.first_name,t.last_name`)
+      .bind(grade,room).all<{prefix:string;first_name:string;last_name:string}>();
+    advisorNames = (advisors.results ?? []).map(item => `${item.prefix}${item.first_name} ${item.last_name}`);
+  }
+  return { rows, settings, advisorNames };
 }
