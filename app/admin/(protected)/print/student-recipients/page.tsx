@@ -46,7 +46,6 @@ export default async function StudentRecipientListPage({searchParams}:{searchPar
         <Signature name="นายขลนที บุญทา" role={en?"Witness":"พยาน"} en={en}/>
         <Signature name={directorName} role={en?"Director, Chomthong School":"ผู้อำนวยการโรงเรียนจอมทอง"} en={en}/>
       </section>
-      <footer>{en?"Printed":"พิมพ์เมื่อ"} {new Date().toLocaleString(en?"en-GB":"th-TH",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Bangkok"})}</footer>
     </article>
   </div>;
 }
