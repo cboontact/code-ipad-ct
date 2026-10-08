@@ -106,6 +106,8 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(documentWithdrawMigration, /'WITHDRAW'/);
   assert.match(recipientPrint, /รายชื่อนักเรียนผู้ยืนยันรับ iPad/);
   assert.match(recipientPrint, /documentReceived/);
+  assert.match(recipientPrint, /\/api\/public\/logo/);
+  assert.doesNotMatch(recipientPrint, /en\?"Device":"รับเครื่อง"/);
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);
