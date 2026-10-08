@@ -116,6 +116,7 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(recipientPrint, /นายขลนที บุญทา/);
   assert.match(recipientPrint, /ผู้อำนวยการโรงเรียนจอมทอง/);
   assert.match(recipientPrint, /displayedAdvisors\.map/);
+  assert.match(recipientPrint, /`\$\{grade\}\/\$\{room\}`/);
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);

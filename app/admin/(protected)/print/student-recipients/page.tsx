@@ -23,7 +23,9 @@ export default async function StudentRecipientListPage({searchParams}:{searchPar
   const schoolName = configuredSchoolName.startsWith("โรงเรียน") ? configuredSchoolName : `โรงเรียน${configuredSchoolName}`;
   const directorName = settings.student_approver_name || settings.approver_name || "นางสาววัลภมาภรค์ อาจนาเสียว";
   const displayedAdvisors = advisorNames.length ? advisorNames : [en?"Not assigned":"ยังไม่ได้กำหนด"];
-  const filterText = [grade,room ? `${en?"Room":"ห้อง"} ${room}` : ""].filter(Boolean).join(" / ");
+  const filterText = grade && room
+    ? `${grade}/${room}`
+    : [grade,room ? `${en?"Room":"ห้อง"} ${room}` : ""].filter(Boolean).join(" / ");
   return <div className={`print-stage recipient-list-stage${embed==="1"?" print-embed":""}`}>
     <div className="print-toolbar no-print"><div><b>{en?"Student iPad Recipient List":"รายชื่อนักเรียนผู้ยืนยันรับ iPad"}</b><small>{rows.length.toLocaleString(en?"en-US":"th-TH")} {en?"students":"คน"}</small></div><PrintButton language={language}/></div>
     <article className="recipient-list-page">
