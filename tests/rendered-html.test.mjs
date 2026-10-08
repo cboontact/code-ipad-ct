@@ -40,7 +40,7 @@ test("ships responsive styles and the current registration experience", async ()
   const cssName = assets.find((name) => name.endsWith(".css"));
   assert.ok(cssName, "production CSS bundle is missing");
 
-  const [css, home, project, ipadVisual, teacherOptions, studentAdmin, studentAdminApi, studentVerifyApi, documentCheckin, documentCheckinApi, documentMigration, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
+  const [css, home, project, ipadVisual, teacherOptions, studentAdmin, studentAdminApi, studentVerifyApi, documentCheckin, documentCheckinApi, documentMigration, documentWithdrawMigration, recipientPrint, handovers, handoversApi, handoversMigration, teacherHandovers, teacherHandoversApi, teacherHandoversMigration, returnsApi, adminShell, adminUsers, adminUsersApi, packageJson, previewScript, languageProvider] = await Promise.all([
     readFile(new URL(`assets/${cssName}`, clientRoot), "utf8"),
     readFile(new URL("components/public/survey-audience-gateway.tsx", root), "utf8"),
     readFile(new URL("components/public/project-documents.tsx", root), "utf8"),
@@ -52,6 +52,8 @@ test("ships responsive styles and the current registration experience", async ()
     readFile(new URL("components/admin/document-checkin.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/document-checkin/route.ts", root), "utf8"),
     readFile(new URL("migrations/0019_add_student_document_checkin.sql", root), "utf8"),
+    readFile(new URL("migrations/0022_add_document_withdraw_event.sql", root), "utf8"),
+    readFile(new URL("app/admin/(protected)/print/student-recipients/page.tsx", root), "utf8"),
     readFile(new URL("components/admin/device-handovers.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/device-handovers/route.ts", root), "utf8"),
     readFile(new URL("migrations/0020_add_student_device_handovers.sql", root), "utf8"),
@@ -90,12 +92,19 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(documentCheckin, /ตรวจเอกสารรายห้อง/);
   assert.match(documentCheckin, /ประวัติการตรวจรับเอกสาร/);
   assert.match(documentCheckin, /เลือกยกเลิกหลายคน/);
+  assert.match(documentCheckin, /เปลี่ยนใจไม่รับ iPad/);
+  assert.match(documentCheckin, /quickReadyToWithdraw/);
   assert.match(documentCheckinApi, /studentIds: z\.array/);
   assert.match(documentCheckinApi, /activeHandovers/);
   assert.match(documentCheckinApi, /requireAdminApi/);
   assert.match(documentCheckinApi, /RECEIVE_STUDENT_DOCUMENT/);
   assert.match(documentCheckinApi, /CANCEL_STUDENT_DOCUMENT/);
+  assert.match(documentCheckinApi, /STUDENT_WITHDRAW_AFTER_DOCUMENT/);
+  assert.match(documentCheckinApi, /กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ/);
   assert.match(documentMigration, /student_document_receipt_events/);
+  assert.match(documentWithdrawMigration, /'WITHDRAW'/);
+  assert.match(recipientPrint, /รายชื่อนักเรียนผู้ยืนยันรับ iPad/);
+  assert.match(recipientPrint, /documentReceived/);
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);

@@ -16,13 +16,14 @@ import {
   faSchool,
   faSpinner,
   faUserCheck,
+  faUserXmark,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 
 type Row = Record<string, unknown>;
-type Tab = "QUICK" | "ROOM" | "HISTORY";
+type Tab = "QUICK" | "WITHDRAW" | "ROOM" | "HISTORY";
 type Summary = { total: number; received: number; pending: number };
 type Option = { grade_level: string; room: string };
 const PAGE_SIZE = 50;
@@ -90,6 +91,11 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     && text(quickStudent.student_code) === studentCode.trim()
     && quickStudent.eligible !== false
     && text(quickStudent.document_status) !== "RECEIVED",
+  );
+  const quickReadyToWithdraw = Boolean(
+    quickStudent
+    && text(quickStudent.student_code) === studentCode.trim()
+    && quickStudent.withdrawEligible === true,
   );
 
   function filterParams(mode: "list" | "history") {
@@ -161,7 +167,9 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     setHistoryAction("");
     setBulkCancelMode(false);
     setSelectedIds([]);
-    if (next === "QUICK") window.setTimeout(() => codeInput.current?.focus(), 0);
+    setQuickStudent(null);
+    setStudentCode("");
+    if (next === "QUICK" || next === "WITHDRAW") window.setTimeout(() => codeInput.current?.focus(), 0);
   }
 
   async function lookup(event: FormEvent) {
@@ -169,7 +177,11 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     if (busy) return;
     const code = studentCode.trim();
     if (!code) { toast.warning("กรุณากรอกเลขประจำตัวนักเรียน"); return; }
-    if (quickReadyToReceive && quickStudent) {
+    if (tab === "WITHDRAW" && quickReadyToWithdraw && quickStudent) {
+      await withdraw(quickStudent);
+      return;
+    }
+    if (tab === "QUICK" && quickReadyToReceive && quickStudent) {
       await receive([text(quickStudent.student_id)], true);
       return;
     }
@@ -183,6 +195,28 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
       setQuickStudent(body.student ?? null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ค้นหานักเรียนไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function withdraw(student: Row) {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/document-checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "withdraw", studentId: text(student.student_id) }),
+      });
+      const body = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(body.error);
+      toast.success(`บันทึก ${text(student.prefix)}${text(student.first_name)} ${text(student.last_name)} เปลี่ยนใจไม่รับ iPad แล้ว`);
+      setQuickStudent(null);
+      setStudentCode("");
+      window.setTimeout(() => codeInput.current?.focus(), 0);
+      await Promise.all([loadList(true), loadHistory(true)]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "เปลี่ยนสถานะไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -269,9 +303,29 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
       <section className="admin-panel document-checkin-panel">
         <div className="document-checkin-tabs" role="tablist" aria-label="รูปแบบตรวจรับเอกสาร">
           <button type="button" role="tab" aria-selected={tab === "QUICK"} className={tab === "QUICK" ? "active" : ""} onClick={() => changeTab("QUICK")}><FontAwesomeIcon icon={faUserCheck}/><span>เช็คด่วน</span></button>
+          <button type="button" role="tab" aria-selected={tab === "WITHDRAW"} className={tab === "WITHDRAW" ? "active" : ""} onClick={() => changeTab("WITHDRAW")}><FontAwesomeIcon icon={faUserXmark}/><span>เปลี่ยนใจไม่รับ</span></button>
           <button type="button" role="tab" aria-selected={tab === "ROOM"} className={tab === "ROOM" ? "active" : ""} onClick={() => changeTab("ROOM")}><FontAwesomeIcon icon={faSchool}/><span>ตรวจรายห้อง</span></button>
           <button type="button" role="tab" aria-selected={tab === "HISTORY"} className={tab === "HISTORY" ? "active" : ""} onClick={() => changeTab("HISTORY")}><FontAwesomeIcon icon={faHistory}/><span>ประวัติ</span></button>
         </div>
+
+        {tab === "WITHDRAW" && (
+          <div className="document-quick-layout document-withdraw-layout">
+            <div className="document-quick-entry">
+              <span className="document-quick-icon withdraw"><FontAwesomeIcon icon={faUserXmark}/></span>
+              <div><h2>เปลี่ยนใจไม่รับ iPad</h2><p>{quickReadyToWithdraw ? "ตรวจสอบชื่อแล้วกด Enter อีกครั้งเพื่อยืนยัน" : "สำหรับนักเรียนที่ส่งเอกสารแล้ว แต่ขอเปลี่ยนเป็นไม่รับ iPad"}</p></div>
+              <form onSubmit={lookup}>
+                <label className="field"><span>เลขประจำตัวนักเรียน</span><input ref={codeInput} autoFocus inputMode="numeric" autoComplete="off" value={studentCode} onChange={(event) => { const nextCode = event.target.value; setStudentCode(nextCode); if (quickStudent && text(quickStudent.student_code) !== nextCode.trim()) setQuickStudent(null); }} placeholder="เช่น 23964"/></label>
+                <button className="button danger-solid" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : quickReadyToWithdraw ? faUserXmark : faMagnifyingGlass} spin={busy}/> {busy ? "กำลังดำเนินการ..." : quickReadyToWithdraw ? "ยืนยันไม่รับ iPad" : "ตรวจสอบ"}</button>
+              </form>
+            </div>
+            <div className={`document-quick-result${quickStudent ? " has-result" : ""}`}>
+              {!quickStudent ? <div className="document-quick-empty"><FontAwesomeIcon icon={faUserXmark}/><b>รอกรอกเลขประจำตัวนักเรียน</b><span>กด Enter ครั้งแรกเพื่อตรวจสอบ และกด Enter อีกครั้งเพื่อยืนยัน</span></div> : <>
+                <header><div><small>ข้อมูลนักเรียน</small><h3><StudentName row={quickStudent}/></h3><p>{text(quickStudent.grade_level)}/{text(quickStudent.room)}{quickStudent.class_number ? ` เลขที่ ${text(quickStudent.class_number)}` : ""} · รหัส {text(quickStudent.student_code)}</p></div><DocumentStatus row={quickStudent}/></header>
+                {quickStudent.withdrawEligible !== true ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.withdrawReason) || "รายการนี้ไม่สามารถเปลี่ยนเป็นไม่รับ iPad ได้"}</span></div> : <><div className="document-enter-hint withdraw"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันเปลี่ยนเป็นไม่รับ iPad และคืนโควตา</span></div><button type="button" className="button danger-solid document-receive-button" disabled={busy} onClick={() => void withdraw(quickStudent)}><FontAwesomeIcon icon={busy ? faSpinner : faUserXmark} spin={busy}/> ยืนยันเปลี่ยนใจไม่รับ iPad</button></>}
+              </>}
+            </div>
+          </div>
+        )}
 
         {tab === "QUICK" && (
           <div className="document-quick-layout">
@@ -317,9 +371,9 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
             <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass}/><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ค้นหารหัสหรือชื่อนักเรียน..."/></label>
             <select className="admin-input" value={grade} onChange={(event) => { setGrade(event.target.value); setRoom(""); setPage(1); }} aria-label="กรองระดับชั้น"><option value="">ทุกระดับชั้น</option>{grades.map((item) => <option key={item}>{item}</option>)}</select>
             <select className="admin-input" value={room} onChange={(event) => { setRoom(event.target.value); setPage(1); }} aria-label="กรองห้อง"><option value="">ทุกห้อง</option>{rooms.map((item) => <option key={item} value={item}>/{item}</option>)}</select>
-            <select className="admin-input" value={historyAction} onChange={(event) => { setHistoryAction(event.target.value); setPage(1); }} aria-label="กรองการดำเนินการ"><option value="">ทุกการดำเนินการ</option><option value="RECEIVE">รับเอกสาร</option><option value="CANCEL">ยกเลิกสถานะ</option></select>
+            <select className="admin-input" value={historyAction} onChange={(event) => { setHistoryAction(event.target.value); setPage(1); }} aria-label="กรองการดำเนินการ"><option value="">ทุกการดำเนินการ</option><option value="RECEIVE">รับเอกสาร</option><option value="WITHDRAW">เปลี่ยนใจไม่รับ iPad</option><option value="CANCEL">ยกเลิกสถานะ</option></select>
           </div>
-          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดประวัติ...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-history-table"><thead><tr><th>วันเวลา</th><th>นักเรียน</th><th>ชั้น / ห้อง</th><th>การดำเนินการ</th><th>ผู้ดำเนินการ</th><th>หมายเหตุ</th></tr></thead><tbody>{historyRows.map((row) => <tr key={text(row.id)}><td>{formatDateTime(row.created_at)}</td><td><b>{text(row.student_code)}</b><span><StudentName row={row}/></span></td><td>{text(row.grade_level)}/{text(row.room)}</td><td><span className={`document-event ${text(row.action).toLowerCase()}`}><FontAwesomeIcon icon={text(row.action) === "RECEIVE" ? faCircleCheck : faBan}/>{text(row.action) === "RECEIVE" ? "รับเอกสาร" : "ยกเลิกสถานะ"}</span></td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td><td>{text(row.note) || "—"}</td></tr>)}</tbody></table>{!historyRows.length && <div className="empty-state small">ยังไม่มีประวัติตามตัวกรอง</div>}<Pagination page={page} pages={historyPages} total={historyTotal} setPage={setPage}/></div>}
+          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดประวัติ...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-history-table"><thead><tr><th>วันเวลา</th><th>นักเรียน</th><th>ชั้น / ห้อง</th><th>การดำเนินการ</th><th>ผู้ดำเนินการ</th><th>หมายเหตุ</th></tr></thead><tbody>{historyRows.map((row) => { const action=text(row.action); return <tr key={text(row.id)}><td>{formatDateTime(row.created_at)}</td><td><b>{text(row.student_code)}</b><span><StudentName row={row}/></span></td><td>{text(row.grade_level)}/{text(row.room)}</td><td><span className={`document-event ${action.toLowerCase()}`}><FontAwesomeIcon icon={action === "RECEIVE" ? faCircleCheck : action === "WITHDRAW" ? faUserXmark : faBan}/>{action === "RECEIVE" ? "รับเอกสาร" : action === "WITHDRAW" ? "เปลี่ยนใจไม่รับ iPad" : "ยกเลิกสถานะ"}</span></td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td><td>{text(row.note) || "—"}</td></tr>; })}</tbody></table>{!historyRows.length && <div className="empty-state small">ยังไม่มีประวัติตามตัวกรอง</div>}<Pagination page={page} pages={historyPages} total={historyTotal} setPage={setPage}/></div>}
         </>}
       </section>
 

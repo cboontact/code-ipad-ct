@@ -22,7 +22,12 @@ const cancelSchema = z.object({
   reason: z.string().trim().min(3, "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร").max(500),
 });
 
-const actionSchema = z.discriminatedUnion("action", [receiveSchema, cancelSchema]);
+const withdrawSchema = z.object({
+  action: z.literal("withdraw"),
+  studentId: z.string().uuid(),
+});
+
+const actionSchema = z.discriminatedUnion("action", [receiveSchema, cancelSchema, withdrawSchema]);
 
 function pageNumber(value: string | null) {
   const parsed = Number.parseInt(value ?? "1", 10);
@@ -82,16 +87,20 @@ export async function GET(request: Request) {
       const student = await db.prepare(`SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
-          dr.received_at,receiver.display_name AS received_by_name
+          dr.received_at,receiver.display_name AS received_by_name,
+          CASE WHEN h.status='ACTIVE' THEN 'ACTIVE' ELSE NULL END AS handover_status
         FROM students s
         LEFT JOIN student_survey_responses r ON r.student_id=s.id
         LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=?
         LEFT JOIN admin_users receiver ON receiver.id=dr.received_by
+        LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
         WHERE s.student_code=? AND s.is_active=1
         LIMIT 1`).bind(DOCUMENT_TYPE, studentCode).first<Record<string, unknown>>();
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
       const accepted = student.public_locked === 1 && student.decision === "ACCEPT";
       const rejected = student.approval_status === "REJECTED";
+      const documentReceived = student.document_status === "RECEIVED";
+      const hasActiveHandover = student.handover_status === "ACTIVE";
       return json({
         student: {
           ...student,
@@ -101,6 +110,16 @@ export async function GET(request: Request) {
             : rejected
               ? "รายการรับ iPad ของนักเรียนไม่ได้รับอนุมัติ"
               : null,
+          withdrawEligible: accepted && !rejected && documentReceived && !hasActiveHandover,
+          withdrawReason: !accepted
+            ? "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad"
+            : rejected
+              ? "รายการนี้ถูกเปลี่ยนเป็นไม่รับ iPad แล้ว"
+              : !documentReceived
+                ? "ยังไม่มีประวัติรับเอกสารของนักเรียนคนนี้"
+                : hasActiveHandover
+                  ? "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ"
+                  : null,
         },
       });
     }
@@ -111,7 +130,7 @@ export async function GET(request: Request) {
       const bindings: unknown[] = [];
       addStudentFilters(url, clauses, bindings);
       const action = url.searchParams.get("action");
-      if (action && ["RECEIVE", "CANCEL"].includes(action)) {
+      if (action && ["RECEIVE", "CANCEL", "WITHDRAW"].includes(action)) {
         clauses.push("e.action=?");
         bindings.push(action);
       }
@@ -189,6 +208,45 @@ export async function POST(request: Request) {
     const admin = await requireAdminApi(request, input.action === "cancel" ? "superadmin" : undefined);
     const db = await ensureDatabase();
     const stamp = now();
+
+    if (input.action === "withdraw") {
+      const student = await db.prepare(`SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,
+          r.decision,r.public_locked,r.approval_status,
+          CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END AS document_received,
+          CASE WHEN h.status='ACTIVE' THEN 1 ELSE 0 END AS active_handover
+        FROM students s
+        JOIN student_survey_responses r ON r.student_id=s.id
+        LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=?
+        LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
+        WHERE s.id=? AND s.is_active=1 LIMIT 1`).bind(DOCUMENT_TYPE, input.studentId).first<{
+          id:string;student_code:string;prefix:string;first_name:string;last_name:string;
+          decision:string;public_locked:number;approval_status:string|null;
+          document_received:number;active_handover:number;
+        }>();
+      if (!student) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 404);
+      if (student.active_handover === 1)
+        return json({ error: "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ" }, 409);
+      if (student.document_received !== 1)
+        return json({ error: "ยังไม่มีประวัติรับเอกสารของนักเรียนคนนี้" }, 409);
+      if (student.public_locked !== 1 || student.decision !== "ACCEPT" || student.approval_status === "REJECTED")
+        return json({ error: "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad หรือเปลี่ยนสถานะไปแล้ว" }, 409);
+
+      const note = "เปลี่ยนใจไม่รับ iPad หลังส่งเอกสารแล้ว";
+      const updated = await db.prepare(`UPDATE student_survey_responses SET
+          decision='DECLINE',approval_status='REJECTED',approved_at=?,approved_by=?,approval_note=?,
+          updated_at=?,updated_by_admin_id=?
+        WHERE student_id=? AND public_locked=1 AND decision='ACCEPT'
+          AND COALESCE(approval_status,'PENDING')!='REJECTED'`)
+        .bind(stamp, admin.id, note, stamp, admin.id, student.id).run();
+      if (Number(updated.meta.changes ?? 0) !== 1)
+        return json({ error: "สถานะถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว กรุณาค้นหาใหม่" }, 409);
+      await db.prepare(`INSERT INTO student_document_receipt_events
+        (id,student_id,document_type,action,note,processed_by,created_at)
+        VALUES (?,?,?,'WITHDRAW',?,?,?)`).bind(id(), student.id, DOCUMENT_TYPE, note, admin.id, stamp).run();
+      await audit(db, admin.id, "STUDENT_WITHDRAW_AFTER_DOCUMENT", "student_survey_response", student.id,
+        `เปลี่ยนเป็นไม่รับ iPad หลังส่งเอกสาร รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`);
+      return json({ success: true, studentId: student.id, decision: "DECLINE", approvalStatus: "REJECTED" });
+    }
 
     if (input.action === "cancel") {
       const studentIds = [...new Set(input.studentIds)];

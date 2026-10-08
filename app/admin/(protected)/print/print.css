@@ -56,3 +56,9 @@
 .awat-page-en .signature-stack{gap:6mm}
 @page{size:Letter portrait;margin:0}
 @media print{html,body{background:#fff!important}.print-stage{margin:0!important;padding:0!important;background:#fff!important}.awat-page{margin:0!important;box-shadow:none!important;width:216mm;height:279mm;min-height:279mm;overflow:hidden}.admin-shell{display:block!important}.admin-content{padding:0!important}.site-header,.admin-sidebar,.print-toolbar{display:none!important}}
+
+.recipient-list-stage{font-family:"Noto Sans Thai",Arial,sans-serif}
+.recipient-list-page{width:216mm;min-height:279mm;margin:0 auto;background:#fff;color:#10243d;padding:14mm 12mm;box-shadow:0 10px 28px rgba(21,50,72,.15)}
+.recipient-list-page header{text-align:center;margin-bottom:8mm}.recipient-list-page h1{margin:0;font-size:22px}.recipient-list-page h2{margin:4px 0;font-size:17px}.recipient-list-page header p{margin:3px 0;color:#526577;font-size:12px}
+.recipient-list-page table{width:100%;border-collapse:collapse;font-size:10px}.recipient-list-page th,.recipient-list-page td{border:1px solid #7e8d9a;padding:5px 6px;vertical-align:middle}.recipient-list-page th{background:#eaf5fb;font-weight:800;text-align:center}.recipient-list-page td:first-child,.recipient-list-page td:nth-child(2),.recipient-list-page td:nth-child(n+4){text-align:center}.recipient-list-page td:last-child{min-width:25mm;height:9mm}.recipient-list-page footer{margin-top:5mm;color:#64748b;font-size:9px;text-align:right}.recipient-list-empty{padding:18px;border:1px solid #d7e2eb;border-top:0;text-align:center;color:#64748b}
+@media print{.recipient-list-page{width:216mm;min-height:279mm;margin:0;box-shadow:none;page-break-after:auto}}

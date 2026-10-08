@@ -658,3 +658,41 @@ CREATE INDEX IF NOT EXISTS teacher_device_handover_events_created_idx
 
 CREATE INDEX IF NOT EXISTS teacher_device_handover_events_teacher_idx
   ON teacher_device_handover_events(teacher_id, created_at DESC);
+
+--> statement-breakpoint
+
+-- Source: migrations/0022_add_document_withdraw_event.sql
+ALTER TABLE student_document_receipt_events RENAME TO student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+CREATE TABLE student_document_receipt_events (
+  id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL DEFAULT 'AWAT03',
+  action TEXT NOT NULL CHECK (action IN ('RECEIVE', 'CANCEL', 'WITHDRAW')),
+  note TEXT,
+  processed_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL
+);
+
+--> statement-breakpoint
+
+INSERT INTO student_document_receipt_events
+  (id,student_id,document_type,action,note,processed_by,created_at)
+SELECT id,student_id,document_type,action,note,processed_by,created_at
+FROM student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+DROP TABLE student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+CREATE INDEX student_document_receipt_events_created_idx
+  ON student_document_receipt_events(created_at DESC);
+
+--> statement-breakpoint
+
+CREATE INDEX student_document_receipt_events_student_idx
+  ON student_document_receipt_events(student_id, document_type, created_at DESC);
