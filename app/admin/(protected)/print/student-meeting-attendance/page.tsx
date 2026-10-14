@@ -44,6 +44,9 @@ export default async function StudentMeetingAttendancePage({
         .filter(Boolean)
         .join(" / ");
   const extraRows = Array.from({ length: 20 }, (_, index) => index + 1);
+  const displayedAdvisors = advisorNames.length
+    ? advisorNames
+    : [en ? "................................................" : "................................................"];
 
   return (
     <div className={`print-stage meeting-attendance-stage${embed === "1" ? " print-embed" : ""}`}>
@@ -73,6 +76,7 @@ export default async function StudentMeetingAttendancePage({
           <tbody>{rows.map((row, index) => <tr key={row.studentCode}><td>{index + 1}</td><td>{row.studentCode}</td><td>{row.fullName}</td><td>{row.gradeLevel}/{row.room}</td><td>{row.classNumber || "—"}</td><td></td><td></td></tr>)}</tbody>
         </table>
         {!rows.length && <div className="recipient-list-empty">{en ? "No students match the selected filters." : "ไม่พบรายชื่อนักเรียนตามตัวกรองที่เลือก"}</div>}
+        <AdvisorSignatures names={displayedAdvisors} en={en} />
       </article>
       <article className="meeting-attendance-page meeting-attendance-extra-page">
         <header>
@@ -90,7 +94,22 @@ export default async function StudentMeetingAttendancePage({
           <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Name" : "ชื่อ-นามสกุล"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
           <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
         </table>
+        <AdvisorSignatures names={displayedAdvisors} en={en} />
       </article>
     </div>
+  );
+}
+
+function AdvisorSignatures({ names, en }: { names: string[]; en: boolean }) {
+  return (
+    <section className={`recipient-list-signatures advisors count-${Math.min(names.length, 2)}`}>
+      {names.map((name, index) => (
+        <div className="recipient-list-signature" key={`${name}-${index}`}>
+          <div>{en ? "Signature" : "ลงชื่อ"} <span></span></div>
+          <b>({name})</b>
+          <small>{en ? "Class advisor" : "ครูที่ปรึกษา"}</small>
+        </div>
+      ))}
+    </section>
   );
 }
