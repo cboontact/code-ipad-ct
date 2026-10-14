@@ -44,7 +44,9 @@ export default async function StudentMeetingAttendancePage({
     return en ? `Grade ${gradeNumber}/${classRoom}` : `ม.${gradeNumber}/${classRoom}`;
   };
   const filterText = grade && room
-    ? formatClass(grade, room)
+    ? en
+      ? `Grade ${grade.match(/\d+/)?.[0] ?? grade}/${room}`
+      : `${grade.startsWith("ชั้น") ? "" : "ชั้น"}${grade}/${room}`
     : [grade, room ? `${en ? "Room" : "ห้อง"} ${room}` : ""]
         .filter(Boolean)
         .join(" / ");
