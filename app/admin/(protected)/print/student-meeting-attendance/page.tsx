@@ -90,9 +90,10 @@ export default async function StudentMeetingAttendancePage({
             <span><b>{en ? "Venue" : "สถานที่"}</b> {en ? "Inthanon Auditorium" : "หอประชุมอินทนนท์"}</span>
           </div>
         </header>
-        <table>
-          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Name" : "ชื่อ-นามสกุล"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
-          <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
+        <table className="meeting-attendance-extra-table">
+          <colgroup><col className="extra-no"/><col className="extra-parent"/><col className="extra-student"/><col className="extra-class"/><col className="extra-signature"/><col className="extra-note"/></colgroup>
+          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Parent / Guardian Name" : "ชื่อ-นามสกุลผู้ปกครอง"}</th><th>{en ? "Student Name" : "ชื่อ-นามสกุลนักเรียน"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
+          <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
         </table>
         <AdvisorSignatures names={displayedAdvisors} en={en} />
       </article>
