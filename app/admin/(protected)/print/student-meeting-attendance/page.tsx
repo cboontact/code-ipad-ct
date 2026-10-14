@@ -48,7 +48,7 @@ export default async function StudentMeetingAttendancePage({
     : [grade, room ? `${en ? "Room" : "ห้อง"} ${room}` : ""]
         .filter(Boolean)
         .join(" / ");
-  const extraRows = Array.from({ length: 20 }, (_, index) => index + 1);
+  const extraRows = Array.from({ length: 13 }, (_, index) => index + 1);
   const displayedAdvisors = advisorNames.length
     ? advisorNames
     : [en ? "................................................" : "................................................"];
