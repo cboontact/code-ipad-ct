@@ -10,14 +10,15 @@ type SearchParams = {
   search?: string;
   grade?: string;
   room?: string;
+  status?: string;
   approval?: string;
   lang?: string;
 };
 
 export default async function StudentRecipientListPage({searchParams}:{searchParams:Promise<SearchParams>}) {
-  const [{embed,search,grade,room,approval,lang},cookieStore] = await Promise.all([searchParams,cookies()]);
+  const [{embed,search,grade,room,status,approval,lang},cookieStore] = await Promise.all([searchParams,cookies()]);
   const language = documentLanguage(lang,cookieStore.get("ipad_language")?.value);
-  const {rows,settings,advisorNames} = await getStudentRecipientList({search,grade,room,approval});
+  const {rows,settings,advisorNames} = await getStudentRecipientList({search,grade,room,status,approval});
   const en = language === "en";
   const configuredSchoolName = settings.school_name.trim();
   const schoolName = configuredSchoolName.startsWith("โรงเรียน") ? configuredSchoolName : `โรงเรียน${configuredSchoolName}`;

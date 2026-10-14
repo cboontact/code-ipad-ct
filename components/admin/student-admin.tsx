@@ -26,6 +26,7 @@ import {
   faUser,
   faUserGraduate,
   faUserTie,
+  faUsers,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "sonner";
@@ -195,9 +196,20 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
     if(query)params.set("search",query);
     if(grade)params.set("grade",grade);
     if(room)params.set("room",room);
-    if(approval&&approval!=="REJECTED")params.set("approval",approval);
+    if(status)params.set("status",status);
+    if(approval)params.set("approval",approval);
     return `/admin/print/student-recipients?${params.toString()}`;
-  },[search,grade,room,approval]);
+  },[search,grade,room,status,approval]);
+  const meetingAttendancePrintUrl = useMemo(() => {
+    const params=new URLSearchParams({embed:"1"});
+    const query=search.trim();
+    if(query)params.set("search",query);
+    if(grade)params.set("grade",grade);
+    if(room)params.set("room",room);
+    if(status)params.set("status",status);
+    if(approval)params.set("approval",approval);
+    return `/admin/print/student-meeting-attendance?${params.toString()}`;
+  },[search,grade,room,status,approval]);
   return <>
     <div className="admin-topline">
       <div><span className="eyebrow">ระบบจัดการ</span><h1 className="admin-page-title"><FontAwesomeIcon icon={resultsView?faClipboardList:faUserGraduate}/> {resultsView?"ลงทะเบียนนักเรียน":"จัดการนักเรียน"}</h1></div>
@@ -208,7 +220,7 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
       {resultsView?<><StudentKpi label="ลงทะเบียนแล้ว" value={n(visibleTotals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(visibleTotals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ไม่รับ iPad" value={n(visibleTotals.declined)} icon={faBan} color="#e79b29"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(visibleTotals.total)-n(visibleTotals.responded))} icon={faClock} color="#f4b942"/></>:<><StudentKpi label="ลงทะเบียนแล้ว" value={n(visibleTotals.responded)} icon={faCircleCheck} color="#0f9b8e"/><StudentKpi label="รับ iPad" value={n(visibleTotals.accepted)} icon={faTabletScreenButton} color="#12b8c8"/><StudentKpi label="ยังไม่ลงทะเบียน" value={Math.max(0,n(visibleTotals.total)-n(visibleTotals.responded))} icon={faClock} color="#f4b942"/></>}
     </div>
     <section className="admin-panel">
-      {resultsView&&<div className="results-table-heading"><div><h2><FontAwesomeIcon icon={faClipboardList}/> รายการลงทะเบียนนักเรียน</h2><p>แสดง {firstShown}-{lastShown} จากผลลัพธ์ {filtered.length} รายการ · ทั้งหมด {rows.length} รายการ</p></div><div className="result-icon-actions"><button className="icon-button csv-action" type="button" disabled={busy} onClick={()=>void exportResults("summary","csv")} aria-label="ดาวน์โหลด Summary CSV" title="ดาวน์โหลด Summary CSV"><FontAwesomeIcon icon={faFileCsv}/></button><button className="icon-button xlsx-action" type="button" disabled={busy} onClick={()=>void exportResults("full","xlsx")} aria-label="ดาวน์โหลด Full XLSX" title="ดาวน์โหลด Full XLSX"><FontAwesomeIcon icon={faFileExcel}/></button><button className="icon-button print-action" type="button" onClick={()=>setPrintId("__recipient_list__")} aria-label="พิมพ์รายชื่อนักเรียนผู้ยืนยันรับ iPad" title="พิมพ์รายชื่อนักเรียนผู้ยืนยันรับ iPad ตามตัวกรอง"><FontAwesomeIcon icon={faListOl}/></button><button className="icon-button print-action" type="button" onClick={()=>setPrintId("__batch__")} aria-label="พิมพ์ AWAT-03 แบบชุด" title="พิมพ์ AWAT-03 แบบชุด"><FontAwesomeIcon icon={faPrint}/></button></div></div>}
+      {resultsView&&<div className="results-table-heading"><div><h2><FontAwesomeIcon icon={faClipboardList}/> รายการลงทะเบียนนักเรียน</h2><p>แสดง {firstShown}-{lastShown} จากผลลัพธ์ {filtered.length} รายการ · ทั้งหมด {rows.length} รายการ</p></div><div className="result-icon-actions"><button className="icon-button csv-action" type="button" disabled={busy} onClick={()=>void exportResults("summary","csv")} aria-label="ดาวน์โหลด Summary CSV" title="ดาวน์โหลด Summary CSV"><FontAwesomeIcon icon={faFileCsv}/></button><button className="icon-button xlsx-action" type="button" disabled={busy} onClick={()=>void exportResults("full","xlsx")} aria-label="ดาวน์โหลด Full XLSX" title="ดาวน์โหลด Full XLSX"><FontAwesomeIcon icon={faFileExcel}/></button><button className="icon-button print-action meeting-print-action" type="button" onClick={()=>setPrintId("__meeting_attendance__")} aria-label="พิมพ์ใบลงชื่อเข้าร่วมประชุม" title="พิมพ์ใบลงชื่อเข้าร่วมประชุมตามตัวกรอง"><FontAwesomeIcon icon={faUsers}/><span>ใบลงชื่อประชุม</span></button><button className="icon-button print-action" type="button" onClick={()=>setPrintId("__recipient_list__")} aria-label="พิมพ์รายชื่อนักเรียนผู้ยืนยันรับ iPad" title="พิมพ์รายชื่อนักเรียนผู้ยืนยันรับ iPad ตามตัวกรอง"><FontAwesomeIcon icon={faListOl}/></button><button className="icon-button print-action" type="button" onClick={()=>setPrintId("__batch__")} aria-label="พิมพ์ AWAT-03 แบบชุด" title="พิมพ์ AWAT-03 แบบชุด"><FontAwesomeIcon icon={faPrint}/></button></div></div>}
       <div className="toolbar student-admin-toolbar">
         <div className="toolbar-group student-admin-filters">
           <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass}/><input value={search} onChange={event=>{setSearch(event.target.value);setPage(1);}} placeholder="ค้นหารหัสหรือชื่อนักเรียน..."/></label>
@@ -247,7 +259,7 @@ export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" 
         }}
       />
     )}
-    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__recipient_list__"?"รายชื่อนักเรียนผู้ยืนยันรับ iPad":printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><LanguageSwitcher compact/><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__recipient_list__"?"ตัวอย่างรายชื่อนักเรียนผู้ยืนยันรับ iPad":printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__recipient_list__"?`${recipientListPrintUrl}&lang=${language}`:printId==="__batch__"?`${batchPrintUrl}&lang=${language}`:`/admin/print/student/${printId}?embed=1&lang=${language}`}/></section></div>}
+    {printId&&<div className="modal-backdrop print-preview-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintId(null)}}><section className="modal print-preview-modal" onMouseDown={event=>event.stopPropagation()}><header className="print-preview-header"><div><span className="eyebrow">ตัวอย่างเอกสารนักเรียน</span><h2>{printId==="__meeting_attendance__"?"บัญชีลงชื่อเข้าร่วมประชุม":printId==="__recipient_list__"?"รายชื่อนักเรียนผู้ยืนยันรับ iPad":printId==="__batch__"?"แบบฟอร์ม AWAT-03 นักเรียนแบบชุด":"แบบฟอร์ม AWAT-03"}</h2></div><div className="print-preview-actions"><LanguageSwitcher compact/><button className="button primary" onClick={()=>frame.current?.contentWindow?.print()}><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร</button><button className="icon-button" onClick={()=>setPrintId(null)} aria-label="ปิด"><FontAwesomeIcon icon={faXmark}/></button></div></header><iframe ref={frame} title={printId==="__meeting_attendance__"?"ตัวอย่างบัญชีลงชื่อเข้าร่วมประชุม":printId==="__recipient_list__"?"ตัวอย่างรายชื่อนักเรียนผู้ยืนยันรับ iPad":printId==="__batch__"?"ตัวอย่าง AWAT-03 นักเรียนแบบชุด":"ตัวอย่าง AWAT-03 นักเรียน"} src={printId==="__meeting_attendance__"?`${meetingAttendancePrintUrl}&lang=${language}`:printId==="__recipient_list__"?`${recipientListPrintUrl}&lang=${language}`:printId==="__batch__"?`${batchPrintUrl}&lang=${language}`:`/admin/print/student/${printId}?embed=1&lang=${language}`}/></section></div>}
   </>;
 }
 

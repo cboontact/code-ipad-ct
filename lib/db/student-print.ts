@@ -140,12 +140,17 @@ export async function getStudentRecipientList(filters: StudentPrintFilters = {})
   const grade = filters.grade?.trim();
   const room = filters.room?.trim();
   const approval = filters.approval?.trim();
+  const status = filters.status?.trim();
   const search = filters.search?.trim();
+  if (status && status !== "ACCEPT") clauses.push("1=0");
   if (grade) { clauses.push("s.grade_level=?"); values.push(grade); }
   if (room) { clauses.push("s.room=?"); values.push(room); }
-  if (approval && approval !== "REJECTED") {
-    clauses.push("COALESCE(r.approval_status,'PENDING')=?");
-    values.push(approval);
+  if (approval) {
+    if (approval === "REJECTED") clauses.push("1=0");
+    else {
+      clauses.push("COALESCE(r.approval_status,'PENDING')=?");
+      values.push(approval);
+    }
   }
   if (search) {
     const pattern = `%${search}%`;
