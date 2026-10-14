@@ -45,7 +45,8 @@ export async function getPrintableStudent(studentId: string): Promise<PrintableS
     LEFT JOIN teachers advisor1 ON advisor1.id=ca1.teacher_id
     LEFT JOIN class_advisors ca2 ON ca2.grade_level=s.grade_level AND ca2.room=s.room AND ca2.advisor_order=2
     LEFT JOIN teachers advisor2 ON advisor2.id=ca2.teacher_id
-    WHERE s.id=? AND r.decision='ACCEPT' AND r.public_locked=1`).bind(studentId).first<{
+    WHERE s.id=? AND r.decision='ACCEPT' AND r.public_locked=1
+      AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`).bind(studentId).first<{
       id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;phone:string|null;
       response_id:string;submitted_at:string;pii_ciphertext:string;pii_iv:string;serial_number:string|null;advisor_name:string|null;document_number:number;
     }>();

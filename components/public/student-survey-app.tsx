@@ -13,6 +13,7 @@ import {
   faLock,
   faMobileScreenButton,
   faPhone,
+  faPrint,
   faSearch,
   faShieldHalved,
   faSpinner,
@@ -43,7 +44,7 @@ type Pii={
   province:string;district:string;subdistrict:string;postalCode:string;
   guardianFullName:string;guardianPhone:string;
 };
-type RegistrationStatus={student:Student;decision:"ACCEPT"|"DECLINE";approvalStatus:"PENDING"|"APPROVED"|"REJECTED"|"NOT_REQUIRED";submittedAt:string;approvedAt?:string|null;approvalNote?:string|null};
+type RegistrationStatus={student:Student;decision:"ACCEPT"|"DECLINE";approvalStatus:"PENDING"|"APPROVED"|"REJECTED"|"NOT_REQUIRED";submittedAt:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean};
 const blankPii:Pii={citizenId:"",houseNo:"",moo:"",soi:"",road:"",province:"เชียงใหม่",district:"",subdistrict:"",postalCode:"",guardianFullName:"",guardianPhone:""};
 
 export function StudentSurveyApp(){
@@ -81,11 +82,11 @@ export function StudentSurveyApp(){
     setBusy(true);
     try{
       const r=await fetch("/api/public/students/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({studentCode:studentCode.trim()})}),
-        data=await readJson<{error?:string;verificationToken?:string;student:Student;alreadyRegistered?:boolean;decision?:"ACCEPT"|"DECLINE";approvalStatus?:RegistrationStatus["approvalStatus"];submittedAt?:string;approvedAt?:string|null;approvalNote?:string|null}>(r);
+        data=await readJson<{error?:string;verificationToken?:string;student:Student;alreadyRegistered?:boolean;decision?:"ACCEPT"|"DECLINE";approvalStatus?:RegistrationStatus["approvalStatus"];submittedAt?:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean}>(r);
       if(!r.ok)throw new Error(data.error);
       setStudent(data.student);setPhone(data.student.phone||"");setEmail(data.student.email||"");setNdlpEmail(data.student.ndlpEmail||"");
       if(data.alreadyRegistered&&data.decision&&data.approvalStatus&&data.submittedAt){
-        setRegistration({student:data.student,decision:data.decision,approvalStatus:data.approvalStatus,submittedAt:data.submittedAt,approvedAt:data.approvedAt,approvalNote:data.approvalNote});
+        setRegistration({student:data.student,decision:data.decision,approvalStatus:data.approvalStatus,submittedAt:data.submittedAt,approvedAt:data.approvedAt,approvalNote:data.approvalNote,canPrint:data.canPrint});
         toast.success("พบข้อมูลการลงทะเบียนแล้ว");
       }else{
         setToken(data.verificationToken||"");
@@ -122,7 +123,7 @@ export function StudentSurveyApp(){
       const payload={studentId:student.id,decision,phone,email:decision==="ACCEPT"?email.trim():"",ndlpEmail:decision==="ACCEPT"?ndlpEmail.trim():"",privacyAcknowledged:decision==="ACCEPT"?privacy:false,pii:decision==="ACCEPT"?piiPayload:undefined};
       const postSurvey=async(verificationToken:string)=>{
         const response=await fetch("/api/public/students/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,verificationToken})});
-        return {response,data:await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"]}>(response)};
+        return {response,data:await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"];canPrint?:boolean}>(response)};
       };
       let result=await postSurvey(token);
       if(result.response.status===401){
@@ -133,7 +134,7 @@ export function StudentSurveyApp(){
         result=await postSurvey(verifyData.verificationToken);
       }
       if(!result.response.ok)throw new Error(result.data.error);
-      setConfirm(false);setRegistration({student,decision,approvalStatus:result.data.approvalStatus,submittedAt:result.data.submittedAt});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
+      setConfirm(false);setRegistration({student,decision,approvalStatus:result.data.approvalStatus,submittedAt:result.data.submittedAt,canPrint:result.data.canPrint});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
     }catch(error){toast.error(error instanceof Error?error.message:"บันทึกข้อมูลไม่สำเร็จ");}
     finally{setBusy(false);}
   }
@@ -149,13 +150,12 @@ export function StudentSurveyApp(){
     const icon=approved?faCircleCheck:rejected?faCircleXmark:declined?faTriangleExclamation:faClock;
     const title=approved?"ได้รับอนุมัติแล้ว":rejected?"ไม่ได้รับอนุมัติ":declined?"บันทึกว่าไม่รับ iPad แล้ว":"รอผู้ดูแลอนุมัติ";
     const description=approved?"ผู้ดูแลยืนยันสิทธิ์รับ iPad เรียบร้อยแล้ว":rejected?"คำขอรับ iPad ไม่ได้รับการอนุมัติ กรุณาติดต่อผู้ดูแลระบบ":declined?"ระบบบันทึกความประสงค์ของนักเรียนเรียบร้อยแล้ว":"ระบบกันโควตา iPad ไว้แล้ว กรุณารอผู้ดูแลตรวจสอบและอนุมัติ";
-    return <main className="shell public-main student-survey-page"><IpadAvailabilityCounter audience="student" studentTier={["4","5","6"].includes(studentGradeNumber(registration.student.gradeLevel))?"upper":"lower"}/><section className={`student-approval-card ${approved?"approved":rejected?"rejected":declined?"declined":"awaiting"}`}><div className="student-approval-icon"><FontAwesomeIcon icon={icon}/></div><span className="eyebrow">สถานะการลงทะเบียนรับ iPad</span><h1>{title}</h1><p className="student-approval-name">{registration.student.name}</p><div className="student-approval-facts"><span><small>ชั้น / ห้อง</small><b>{registration.student.gradeLevel}/{registration.student.room}</b></span><span><small>เลขที่</small><b>{registration.student.classNumber||"—"}</b></span><span><small>เลขประจำตัวนักเรียน</small><b>{registration.student.studentCode}</b></span></div><p className="student-approval-description">{description}</p>{registration.approvalNote&&<p className="student-approval-note">หมายเหตุ: {registration.approvalNote}</p>}<button className="button secondary" onClick={reset}><FontAwesomeIcon icon={faArrowLeft}/> ตรวจสอบนักเรียนคนอื่น</button></section></main>;
+    return <main className="shell public-main student-survey-page"><IpadAvailabilityCounter audience="student" studentTier={["4","5","6"].includes(studentGradeNumber(registration.student.gradeLevel))?"upper":"lower"}/><section className={`student-approval-card ${approved?"approved":rejected?"rejected":declined?"declined":"awaiting"}`}><div className="student-approval-icon"><FontAwesomeIcon icon={icon}/></div><span className="eyebrow">สถานะการลงทะเบียนรับ iPad</span><h1>{title}</h1><p className="student-approval-name">{registration.student.name}</p><div className="student-approval-facts"><span><small>ชั้น / ห้อง</small><b>{registration.student.gradeLevel}/{registration.student.room}</b></span><span><small>เลขที่</small><b>{registration.student.classNumber||"—"}</b></span><span><small>เลขประจำตัวนักเรียน</small><b>{registration.student.studentCode}</b></span></div><p className="student-approval-description">{description}</p>{registration.approvalNote&&<p className="student-approval-note">หมายเหตุ: {registration.approvalNote}</p>}<div className="student-approval-actions">{registration.canPrint&&<Link className="button primary" href="/student/print" target="_blank" rel="noopener"><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร AWAT-03</Link>}<button className="button secondary" onClick={reset}><FontAwesomeIcon icon={faArrowLeft}/> ตรวจสอบนักเรียนคนอื่น</button></div></section></main>;
   }
-
-  if(registrationStatus==="CLOSED") return <main className="shell public-main student-survey-page"><div className="closed-card"><FontAwesomeIcon icon={faClock}/><span>ปิดรับลงทะเบียนนักเรียน</span><h1>ขณะนี้ปิดรับลงทะเบียนสำหรับนักเรียนแล้ว</h1><p>ยังสามารถอ่านรายละเอียดโครงการและเอกสารประชาสัมพันธ์ได้ตามปกติ</p><Link className="button primary" href="/project">ดูรายละเอียดโครงการ</Link></div></main>;
 
   return <main className="shell public-main student-survey-page">
     <IpadAvailabilityCounter audience="student" studentTier={student?(isUpperSecondary?"upper":"lower"):undefined} />
+    {registrationStatus==="CLOSED"&&!student&&<div className="student-registration-closed-note"><FontAwesomeIcon icon={faClock}/><span><b>ปิดรับลงทะเบียนนักเรียนใหม่แล้ว</b><small>นักเรียนที่ลงทะเบียนไว้แล้วสามารถกรอกเลขประจำตัวด้านล่าง เพื่อตรวจสอบสถานะและพิมพ์ AWAT-03</small></span></div>}
     {!student&&<section className="flow-card student-lookup-card">
       <Link href="/" className="back"><FontAwesomeIcon icon={faArrowLeft}/> เลือกประเภทผู้ใช้ใหม่</Link>
       <div className="student-lookup-heading"><div className="flow-title student-flow-title"><span className="flow-title-icon"><FontAwesomeIcon icon={faGraduationCap}/></span><div><span className="eyebrow">ลงทะเบียนรับ iPad สำหรับนักเรียน</span><h1>ค้นหาข้อมูลนักเรียน</h1><p>ใช้เลขประจำตัวนักเรียนของโรงเรียนเพื่อค้นหาข้อมูล</p></div></div><IpadProductVisual className="survey-search-ipad"/></div>

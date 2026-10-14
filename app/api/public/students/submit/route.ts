@@ -6,6 +6,7 @@ import { isGuardianNameSameAsStudent, studentSubmitSchema } from "@/lib/validati
 import { isValidThaiAddress } from "@/lib/data/thai-address";
 import { studentGradeNumber } from "@/lib/data/student-options";
 import { registrationWindow } from "@/lib/registration-window";
+import { createStudentPrintCookie, clearStudentPrintCookie } from "@/lib/security/student-print-session";
 
 export async function POST(request: Request) {
   try {
@@ -123,7 +124,22 @@ export async function POST(request: Request) {
         409,
       );
     }
-    return json({ success: true, studentName: `${student.prefix}${student.first_name} ${student.last_name}`, submittedAt: stamp, approvalStatus: input.decision === "ACCEPT" ? "PENDING" : "NOT_REQUIRED" });
+    const canPrint = input.decision === "ACCEPT";
+    return json(
+      {
+        success: true,
+        studentName: `${student.prefix}${student.first_name} ${student.last_name}`,
+        submittedAt: stamp,
+        approvalStatus: canPrint ? "PENDING" : "NOT_REQUIRED",
+        canPrint,
+      },
+      200,
+      {
+        "Set-Cookie": canPrint
+          ? await createStudentPrintCookie(student.id, request)
+          : clearStudentPrintCookie(request),
+      },
+    );
   } catch (error) {
     return apiError(error);
   }

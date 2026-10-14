@@ -5,6 +5,7 @@ import { assertSameOrigin, clientIp, enforcePublicRateLimit } from "@/lib/securi
 import { signToken } from "@/lib/security/crypto";
 import { registrationWindow } from "@/lib/registration-window";
 import { studentGradeNumber } from "@/lib/data/student-options";
+import { createStudentPrintCookie, clearStudentPrintCookie } from "@/lib/security/student-print-session";
 
 const schema = z.object({
   studentCode: z.string().trim().min(1).max(30),
@@ -39,7 +40,11 @@ export async function POST(request: Request) {
       email: student.school_email ?? "",
       ndlpEmail: student.ndlp_email ?? "",
     };
-    if (student.public_locked)
+    if (student.public_locked) {
+      const canPrint = student.decision === "ACCEPT" && student.approval_status !== "REJECTED";
+      const printCookie = canPrint
+        ? await createStudentPrintCookie(student.id, request)
+        : clearStudentPrintCookie(request);
       return json({
         alreadyRegistered: true,
         student: publicStudent,
@@ -48,7 +53,9 @@ export async function POST(request: Request) {
         approvedAt: student.approved_at,
         approvalNote: student.approval_note,
         submittedAt: student.submitted_at,
-      });
+        canPrint,
+      }, 200, { "Set-Cookie": printCookie });
+    }
     const audience = ["4", "5", "6"].includes(studentGradeNumber(student.grade_level)) ? "student_upper" : "student_lower";
     if (!registrationWindow(settings, audience).isOpen) throw new Error("STUDENT_REGISTRATION_CLOSED");
     const verificationToken = await signToken({ studentId: student.id, purpose: "student-survey" }, 2 * 60 * 60);
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
       verificationToken,
       reopened: Boolean(student.response_id),
       student: publicStudent,
-    });
+    }, 200, { "Set-Cookie": clearStudentPrintCookie(request) });
   } catch (error) {
     return apiError(error);
   }
