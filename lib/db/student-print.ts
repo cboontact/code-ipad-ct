@@ -117,6 +117,7 @@ export async function getAcceptedStudentIds(filters: StudentPrintFilters = {}): 
 export interface StudentRecipientRow {
   studentCode: string;
   fullName: string;
+  guardianFullName: string;
   gradeLevel: string;
   room: string;
   classNumber: string;
@@ -126,7 +127,10 @@ export interface StudentRecipientRow {
   handedOverAt: string;
 }
 
-export async function getStudentRecipientList(filters: StudentPrintFilters = {}) {
+export async function getStudentRecipientList(
+  filters: StudentPrintFilters = {},
+  options: { includeGuardian?: boolean } = {},
+) {
   const db = await ensureDatabase();
   const settings = await getSettings(db);
   const clauses = [
@@ -158,11 +162,12 @@ export async function getStudentRecipientList(filters: StudentPrintFilters = {})
       OR (s.prefix || s.first_name || ' ' || s.last_name) LIKE ?)`);
     values.push(pattern, pattern, pattern, pattern);
   }
+  const guardianColumns = options.includeGuardian ? ",r.pii_ciphertext,r.pii_iv" : "";
   const result = await db.prepare(`SELECT s.student_code,s.prefix,s.first_name,s.last_name,
       s.grade_level,s.room,s.class_number,COALESCE(r.approval_status,'PENDING') AS approval_status,
       CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END AS document_received,
       CASE WHEN h.status='ACTIVE' THEN 1 ELSE 0 END AS device_received,
-      h.handed_over_at
+      h.handed_over_at${guardianColumns}
     FROM students s
     JOIN student_survey_responses r ON r.student_id=s.id
     LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type='AWAT03'
@@ -172,18 +177,30 @@ export async function getStudentRecipientList(filters: StudentPrintFilters = {})
     .bind(...values).all<{
       student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;
       room:string;class_number:string|null;approval_status:string;document_received:number;
-      device_received:number;handed_over_at:string|null;
+      device_received:number;handed_over_at:string|null;pii_ciphertext?:string;pii_iv?:string;
     }>();
-  const rows: StudentRecipientRow[] = (result.results ?? []).map(row => ({
-    studentCode: row.student_code,
-    fullName: `${row.prefix}${row.first_name} ${row.last_name}`,
-    gradeLevel: row.grade_level,
-    room: row.room,
-    classNumber: row.class_number ?? "",
-    documentReceived: row.document_received === 1,
-    approvalStatus: row.approval_status,
-    deviceReceived: row.device_received === 1,
-    handedOverAt: row.handed_over_at ?? "",
+  const rows: StudentRecipientRow[] = await Promise.all((result.results ?? []).map(async row => {
+    let guardianFullName = "";
+    if (options.includeGuardian && row.pii_ciphertext && row.pii_iv) {
+      try {
+        const pii = await decryptJson<StudentPersonalData>(row.pii_ciphertext, row.pii_iv);
+        guardianFullName = `${pii.guardianPrefix ?? ""}${pii.guardianName ?? ""}`.trim();
+      } catch {
+        guardianFullName = "";
+      }
+    }
+    return {
+      studentCode: row.student_code,
+      fullName: `${row.prefix}${row.first_name} ${row.last_name}`,
+      guardianFullName,
+      gradeLevel: row.grade_level,
+      room: row.room,
+      classNumber: row.class_number ?? "",
+      documentReceived: row.document_received === 1,
+      approvalStatus: row.approval_status,
+      deviceReceived: row.device_received === 1,
+      handedOverAt: row.handed_over_at ?? "",
+    };
   }));
   let advisorNames: string[] = [];
   if (grade && room) {
