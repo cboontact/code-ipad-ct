@@ -49,7 +49,7 @@ export default async function StudentMeetingAttendancePage({
     <div className={`print-stage meeting-attendance-stage${embed === "1" ? " print-embed" : ""}`}>
       <div className="print-toolbar no-print">
         <div>
-          <b>{en ? "Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม"}</b>
+          <b>{en ? "Parent Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม ผู้ปกครอง"}</b>
           <small>{rows.length.toLocaleString(en ? "en-US" : "th-TH")} {en ? "students" : "คน"}</small>
         </div>
         <PrintButton language={language} />
@@ -58,7 +58,7 @@ export default async function StudentMeetingAttendancePage({
         <header>
           <img className="meeting-attendance-logo" src="/api/public/logo" width="68" height="68" alt={en ? "School logo" : "ตราสัญลักษณ์โรงเรียน"} />
           <h2>{schoolName}</h2>
-          <h1>{en ? "Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม"}</h1>
+          <h1>{en ? "Parent Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม ผู้ปกครอง"}</h1>
           <p>{en ? "Briefing on receiving and using iPads under the Anywhere Anytime project" : "การประชุมชี้แจงแนวทางการรับและใช้งาน iPad ตามโครงการ Anywhere Anytime"}</p>
           <p>{filterText || (en ? "All grade levels and rooms" : "ทุกระดับชั้นและทุกห้อง")} · {en ? "Total" : "รวม"} {rows.length.toLocaleString(en ? "en-US" : "th-TH")} {en ? "students" : "คน"}</p>
           {grade && room && <p className="meeting-attendance-advisors"><b>{en ? "Class advisor" : "ครูที่ปรึกษา"}</b> {advisorNames.length ? advisorNames.join(" / ") : en ? "Not assigned" : "ยังไม่ได้กำหนด"}</p>}
@@ -78,7 +78,7 @@ export default async function StudentMeetingAttendancePage({
         <header>
           <img className="meeting-attendance-logo" src="/api/public/logo" width="68" height="68" alt={en ? "School logo" : "ตราสัญลักษณ์โรงเรียน"} />
           <h2>{schoolName}</h2>
-          <h1>{en ? "Additional Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม (เพิ่มเติม)"}</h1>
+          <h1>{en ? "Additional Parent Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม ผู้ปกครอง (เพิ่มเติม)"}</h1>
           <p>{en ? "Briefing on receiving and using iPads under the Anywhere Anytime project" : "การประชุมชี้แจงแนวทางการรับและใช้งาน iPad ตามโครงการ Anywhere Anytime"}</p>
           <div className="meeting-attendance-details">
             <span><b>{en ? "Date" : "วันที่"}</b> {en ? "17 October 2026" : "17 ตุลาคม 2569"}</span>
