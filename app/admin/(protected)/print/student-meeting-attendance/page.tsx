@@ -43,6 +43,7 @@ export default async function StudentMeetingAttendancePage({
     : [grade, room ? `${en ? "Room" : "ห้อง"} ${room}` : ""]
         .filter(Boolean)
         .join(" / ");
+  const extraRows = Array.from({ length: 20 }, (_, index) => index + 1);
 
   return (
     <div className={`print-stage meeting-attendance-stage${embed === "1" ? " print-embed" : ""}`}>
@@ -72,6 +73,23 @@ export default async function StudentMeetingAttendancePage({
           <tbody>{rows.map((row, index) => <tr key={row.studentCode}><td>{index + 1}</td><td>{row.studentCode}</td><td>{row.fullName}</td><td>{row.gradeLevel}/{row.room}</td><td>{row.classNumber || "—"}</td><td></td><td></td></tr>)}</tbody>
         </table>
         {!rows.length && <div className="recipient-list-empty">{en ? "No students match the selected filters." : "ไม่พบรายชื่อนักเรียนตามตัวกรองที่เลือก"}</div>}
+      </article>
+      <article className="meeting-attendance-page meeting-attendance-extra-page">
+        <header>
+          <img className="meeting-attendance-logo" src="/api/public/logo" width="68" height="68" alt={en ? "School logo" : "ตราสัญลักษณ์โรงเรียน"} />
+          <h2>{schoolName}</h2>
+          <h1>{en ? "Additional Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม (เพิ่มเติม)"}</h1>
+          <p>{en ? "Briefing on receiving and using iPads under the Anywhere Anytime project" : "การประชุมชี้แจงแนวทางการรับและใช้งาน iPad ตามโครงการ Anywhere Anytime"}</p>
+          <div className="meeting-attendance-details">
+            <span><b>{en ? "Date" : "วันที่"}</b> {en ? "17 October 2026" : "17 ตุลาคม 2569"}</span>
+            <span><b>{en ? "Time" : "เวลา"}</b> {en ? "9:00 a.m." : "9.00 น."}</span>
+            <span><b>{en ? "Venue" : "สถานที่"}</b> {en ? "Inthanon Auditorium" : "หอประชุมอินทนนท์"}</span>
+          </div>
+        </header>
+        <table>
+          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Name" : "ชื่อ-นามสกุล"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
+          <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
+        </table>
       </article>
     </div>
   );
