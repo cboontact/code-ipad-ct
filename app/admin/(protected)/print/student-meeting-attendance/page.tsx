@@ -78,7 +78,7 @@ export default async function StudentMeetingAttendancePage({
         </header>
         <table className="meeting-attendance-register-table">
           <colgroup><col className="attendance-no"/><col className="attendance-code"/><col className="attendance-student"/><col className="attendance-parent"/><col className="attendance-class"/><col className="attendance-class-number"/><col className="attendance-signature"/><col className="attendance-note"/></colgroup>
-          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Student" : "ชื่อนักเรียน"}</th><th>{en ? "Parent / Guardian" : "ชื่อผู้ปกครอง"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
+          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Student's Full Name" : "ชื่อ - นามสกุล นักเรียน"}</th><th>{en ? "Parent / Guardian's Full Name" : "ชื่อ - นามสกุล ผู้ปกครอง"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
           <tbody>{rows.map((row, index) => <tr key={row.studentCode}><td>{index + 1}</td><td>{row.studentCode}</td><td>{row.fullName}</td><td>{row.guardianFullName || "—"}</td><td>{formatClass(row.gradeLevel, row.room)}</td><td>{row.classNumber || "—"}</td><td></td><td></td></tr>)}</tbody>
         </table>
         {!rows.length && <div className="recipient-list-empty">{en ? "No students match the selected filters." : "ไม่พบรายชื่อนักเรียนตามตัวกรองที่เลือก"}</div>}
@@ -98,7 +98,7 @@ export default async function StudentMeetingAttendancePage({
         </header>
         <table className="meeting-attendance-extra-table">
           <colgroup><col className="attendance-no"/><col className="attendance-code"/><col className="attendance-student"/><col className="attendance-parent"/><col className="attendance-class"/><col className="attendance-class-number"/><col className="attendance-signature"/><col className="attendance-note"/></colgroup>
-          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Student" : "ชื่อนักเรียน"}</th><th>{en ? "Parent / Guardian" : "ชื่อผู้ปกครอง"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
+          <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Student's Full Name" : "ชื่อ - นามสกุล นักเรียน"}</th><th>{en ? "Parent / Guardian's Full Name" : "ชื่อ - นามสกุล ผู้ปกครอง"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
           <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
         </table>
       </article>
