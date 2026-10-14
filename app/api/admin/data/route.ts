@@ -32,10 +32,17 @@ export async function GET(request: Request) {
         SUM(CASE WHEN r.id IS NULL OR r.public_locked=0 THEN 1 ELSE 0 END) AS pending
         FROM students s LEFT JOIN student_survey_responses r ON r.student_id=s.id
         WHERE s.is_active=1 GROUP BY s.grade_level ORDER BY s.grade_level`).all();
+      const studentRooms = await db.prepare(`SELECT s.grade_level,s.room,COUNT(s.id) AS total,
+        SUM(CASE WHEN r.decision='ACCEPT' AND r.public_locked=1 THEN 1 ELSE 0 END) AS accepted,
+        SUM(CASE WHEN r.decision='DECLINE' AND r.public_locked=1 THEN 1 ELSE 0 END) AS declined,
+        SUM(CASE WHEN r.id IS NULL OR r.public_locked=0 THEN 1 ELSE 0 END) AS pending
+        FROM students s LEFT JOIN student_survey_responses r ON r.student_id=s.id
+        WHERE s.is_active=1 GROUP BY s.grade_level,s.room
+        ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`).all();
       const teacherAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM survey_responses r JOIN teachers t ON t.id=r.teacher_id WHERE t.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1`).first<{ count: number }>();
       const studentAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM student_survey_responses r JOIN students s ON s.id=r.student_id WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1 AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`).first<{ count: number }>();
       const settings = await getSettings(db);
-      return json({ totals, teacherTotals, studentTotals, teacherAssigned: teacherAssigned?.count ?? 0, studentAssigned: studentAssigned?.count ?? 0, areas: areas.results ?? [], studentGrades: studentGrades.results ?? [], settings });
+      return json({ totals, teacherTotals, studentTotals, teacherAssigned: teacherAssigned?.count ?? 0, studentAssigned: studentAssigned?.count ?? 0, areas: areas.results ?? [], studentGrades: studentGrades.results ?? [], studentRooms: studentRooms.results ?? [], settings });
     }
     if (resource === "learning-areas") {
       const rows = await db.prepare(`SELECT a.*, COUNT(t.id) AS teacher_count FROM learning_areas a LEFT JOIN teachers t ON t.learning_area_id=a.id GROUP BY a.id ORDER BY a.sort_order, a.name`).all(); return json({ rows: rows.results ?? [] });

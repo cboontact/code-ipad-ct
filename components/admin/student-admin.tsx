@@ -71,11 +71,11 @@ function mapImportRow(row: SpreadsheetRow): Row {
   return mapped;
 }
 
-export function StudentAdmin({ view = "manage" }: { view?: "manage" | "results" }) {
+export function StudentAdmin({ view = "manage", initialGrade = "", initialRoom = "" }: { view?: "manage" | "results"; initialGrade?: string; initialRoom?: string }) {
   const { language } = useLanguage();
   const resultsView = view === "results";
   const [rows,setRows] = useState<Row[]>([]), [totals,setTotals] = useState<Row>({}), [loading,setLoading] = useState(true);
-  const [busy,setBusy] = useState(false), [search,setSearch] = useState(""), [grade,setGrade] = useState(""), [room,setRoom] = useState(""), [status,setStatus] = useState(""), [approval,setApproval] = useState(""), [editor,setEditor] = useState<Editor|null>(null);
+  const [busy,setBusy] = useState(false), [search,setSearch] = useState(""), [grade,setGrade] = useState(initialGrade), [room,setRoom] = useState(initialRoom), [status,setStatus] = useState(""), [approval,setApproval] = useState(""), [editor,setEditor] = useState<Editor|null>(null);
   const [importOpen,setImportOpen] = useState(false), [importRows,setImportRows] = useState<Row[]>([]), [printId,setPrintId] = useState<string|null>(null);
   const [page,setPage] = useState(1);
   const frame = useRef<HTMLIFrameElement>(null);

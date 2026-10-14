@@ -1,5 +1,6 @@
 "use client";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
@@ -450,7 +451,8 @@ function Dashboard({ data }: { data: Record<string, unknown> }) {
     allocationRate = quota ? Math.min(100, Math.round((assigned / quota) * 100)) : 0,
     rate = total ? Math.round((responded / total) * 100) : 0,
     areas = (data.areas as Row[]) ?? [],
-    studentGrades = (data.studentGrades as Row[]) ?? [];
+    studentGrades = (data.studentGrades as Row[]) ?? [],
+    studentRooms = (data.studentRooms as Row[]) ?? [];
   const cards = [
     { label: isStudent ? "นักเรียนทั้งหมด" : "ครูทั้งหมด", value: total, icon: isStudent ? faUserGraduate : faUserTie, color: "#1599d6" },
     { label: "ลงทะเบียนแล้ว", value: responded, icon: faCircleCheck, color: "#0f9b8e" },
@@ -508,12 +510,13 @@ function Dashboard({ data }: { data: Record<string, unknown> }) {
         ))}
       </div>
       {isStudent
-        ? <ResponseChart title="สถานะนักเรียนแยกตามระดับชั้น" rows={studentGrades} unit="นักเรียน" empty="ยังไม่มีข้อมูลนักเรียน" />
+        ? <ResponseChart title="สถานะนักเรียนแยกตามระดับชั้น" rows={studentGrades} unit="นักเรียน" empty="ยังไม่มีข้อมูลนักเรียน" drilldownRows={studentRooms} />
         : <ResponseChart title="สถานะครูแยกตามกลุ่มสาระ" rows={areas} unit="ครู" empty="ยังไม่มีข้อมูลครู" />}
     </>
   );
 }
-function ResponseChart({ title, rows, unit, empty }: { title: string; rows: Row[]; unit: string; empty: string }) {
+function ResponseChart({ title, rows, unit, empty, drilldownRows = [] }: { title: string; rows: Row[]; unit: string; empty: string; drilldownRows?: Row[] }) {
+  const [expanded, setExpanded] = useState("");
   return (
       <div className="admin-panel response-chart-panel dashboard-chart-section">
         <div className="response-chart-heading">
@@ -536,8 +539,9 @@ function ResponseChart({ title, rows, unit, empty }: { title: string; rows: Row[
               acceptedWidth = sum ? (acceptedCount / sum) * 100 : 0,
               declinedWidth = sum ? (declinedCount / sum) * 100 : 0,
               pendingWidth = sum ? (pendingCount / sum) * 100 : 100;
-            return (
-              <div className="response-chart-row" key={s(area.id) || `${s(area.name)}-${index}`}>
+            const areaName = s(area.name);
+            const roomRows = drilldownRows.filter((room) => s(room.grade_level) === areaName);
+            const rowContent = <>
                 <div className="response-chart-label">
                   <span className="response-chart-area-icon" aria-hidden="true">
                     <FontAwesomeIcon icon={learningAreaIcons[s(area.icon)] ?? (unit === "นักเรียน" ? faUserGraduate : faBookOpen)} />
@@ -572,8 +576,26 @@ function ResponseChart({ title, rows, unit, empty }: { title: string; rows: Row[
                     <span><i className="pending" />ไม่ตอบ <b>{pendingCount}</b></span>
                   </div>
                 </div>
-              </div>
-            );
+              </>;
+            if (!roomRows.length) return <div className="response-chart-row" key={s(area.id) || `${areaName}-${index}`}>{rowContent}</div>;
+            const isExpanded = expanded === areaName;
+            return <div className={`response-chart-group${isExpanded ? " expanded" : ""}`} key={s(area.id) || `${areaName}-${index}`}>
+              <button className="response-chart-row response-chart-toggle" type="button" aria-expanded={isExpanded} onClick={() => setExpanded(isExpanded ? "" : areaName)}>
+                {rowContent}
+                <span className="response-chart-drilldown-hint">{isExpanded ? "ซ่อนรายละเอียดรายห้อง" : "ดูรายละเอียดรายห้อง"}<FontAwesomeIcon icon={faChevronRight}/></span>
+              </button>
+              {isExpanded && <div className="response-room-grid">
+                {roomRows.map((room) => {
+                  const roomTotal = n(room.total), roomAccepted = n(room.accepted), roomDeclined = n(room.declined), roomPending = Math.max(0, roomTotal - roomAccepted - roomDeclined);
+                  const href = `/admin/student-results?grade=${encodeURIComponent(areaName)}&room=${encodeURIComponent(s(room.room))}`;
+                  return <Link className="response-room-card" href={href} key={`${areaName}-${s(room.room)}`}>
+                    <div><b>{areaName} / ห้อง {s(room.room)}</b><span>นักเรียน {roomTotal.toLocaleString("th-TH")} คน</span></div>
+                    <span className="response-room-arrow"><FontAwesomeIcon icon={faChevronRight}/></span>
+                    <div className="response-room-counts"><span className="accepted">รับ <b>{roomAccepted}</b></span><span className="declined">ไม่รับ <b>{roomDeclined}</b></span><span className="pending">ไม่ตอบ <b>{roomPending}</b></span></div>
+                  </Link>;
+                })}
+              </div>}
+            </div>;
           })}
           </div>
         ) : (
