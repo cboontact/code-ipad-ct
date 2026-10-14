@@ -101,7 +101,6 @@ export default async function StudentMeetingAttendancePage({
           <thead><tr><th>{en ? "No." : "ลำดับ"}</th><th>{en ? "Student ID" : "เลขประจำตัว"}</th><th>{en ? "Student Name" : "ชื่อ-นามสกุลนักเรียน"}</th><th>{en ? "Parent / Guardian Name" : "ชื่อ-นามสกุลผู้ปกครอง"}</th><th>{en ? "Class / Room" : "ชั้น / ห้อง"}</th><th>{en ? "Class No." : "เลขที่"}</th><th>{en ? "Signature" : "ลายมือชื่อ"}</th><th>{en ? "Note" : "หมายเหตุ"}</th></tr></thead>
           <tbody>{extraRows.map((number) => <tr key={number}><td>{number}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</tbody>
         </table>
-        <AdvisorSignatures names={displayedAdvisors} en={en} />
       </article>
     </div>
   );
