@@ -516,8 +516,26 @@ function Dashboard({ data }: { data: Record<string, unknown> }) {
   );
 }
 function ResponseChart({ title, rows, unit, empty, drilldownRows = [] }: { title: string; rows: Row[]; unit: string; empty: string; drilldownRows?: Row[] }) {
-  const [expanded, setExpanded] = useState("");
+  const [selectedArea, setSelectedArea] = useState("");
+  const selectedGrade = rows.find((row) => s(row.name) === selectedArea);
+  const selectedRooms = drilldownRows.filter((room) => s(room.grade_level) === selectedArea);
+
+  useEffect(() => {
+    if (!selectedArea) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedArea("");
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedArea]);
+
   return (
+    <>
       <div className="admin-panel response-chart-panel dashboard-chart-section">
         <div className="response-chart-heading">
           <h2>
@@ -578,23 +596,11 @@ function ResponseChart({ title, rows, unit, empty, drilldownRows = [] }: { title
                 </div>
               </>;
             if (!roomRows.length) return <div className="response-chart-row" key={s(area.id) || `${areaName}-${index}`}>{rowContent}</div>;
-            const isExpanded = expanded === areaName;
-            return <div className={`response-chart-group${isExpanded ? " expanded" : ""}`} key={s(area.id) || `${areaName}-${index}`}>
-              <button className="response-chart-row response-chart-toggle" type="button" aria-expanded={isExpanded} onClick={() => setExpanded(isExpanded ? "" : areaName)}>
+            return <div className="response-chart-group" key={s(area.id) || `${areaName}-${index}`}>
+              <button className="response-chart-row response-chart-toggle" type="button" aria-haspopup="dialog" onClick={() => setSelectedArea(areaName)}>
                 {rowContent}
-                <span className="response-chart-drilldown-hint">{isExpanded ? "ซ่อนรายละเอียดรายห้อง" : "ดูรายละเอียดรายห้อง"}<FontAwesomeIcon icon={faChevronRight}/></span>
+                <span className="response-chart-drilldown-hint">ดูรายละเอียดรายห้อง<FontAwesomeIcon icon={faChevronRight}/></span>
               </button>
-              {isExpanded && <div className="response-room-grid">
-                {roomRows.map((room) => {
-                  const roomTotal = n(room.total), roomAccepted = n(room.accepted), roomDeclined = n(room.declined), roomPending = Math.max(0, roomTotal - roomAccepted - roomDeclined);
-                  const href = `/admin/student-results?grade=${encodeURIComponent(areaName)}&room=${encodeURIComponent(s(room.room))}`;
-                  return <Link className="response-room-card" href={href} key={`${areaName}-${s(room.room)}`}>
-                    <div><b>{areaName} / ห้อง {s(room.room)}</b><span>นักเรียน {roomTotal.toLocaleString("th-TH")} คน</span></div>
-                    <span className="response-room-arrow"><FontAwesomeIcon icon={faChevronRight}/></span>
-                    <div className="response-room-counts"><span className="accepted">รับ <b>{roomAccepted}</b></span><span className="declined">ไม่รับ <b>{roomDeclined}</b></span><span className="pending">ไม่ตอบ <b>{roomPending}</b></span></div>
-                  </Link>;
-                })}
-              </div>}
             </div>;
           })}
           </div>
@@ -602,6 +608,40 @@ function ResponseChart({ title, rows, unit, empty, drilldownRows = [] }: { title
           <Empty text={empty} />
         )}
       </div>
+      {selectedArea && selectedGrade && (
+        <div className="modal-backdrop response-room-modal-backdrop" onMouseDown={() => setSelectedArea("")}>
+          <section className="modal response-room-modal" role="dialog" aria-modal="true" aria-labelledby="response-room-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="response-room-modal-header">
+              <div className="response-room-modal-title">
+                <span className="response-chart-area-icon" aria-hidden="true"><FontAwesomeIcon icon={faUserGraduate} /></span>
+                <div>
+                  <small>สถานะนักเรียนแยกรายห้อง</small>
+                  <h2 id="response-room-modal-title">{selectedArea}</h2>
+                  <p>นักเรียนทั้งหมด {n(selectedGrade.total).toLocaleString("th-TH")} คน</p>
+                </div>
+              </div>
+              <button className="icon-button" type="button" aria-label="ปิดหน้าต่าง" onClick={() => setSelectedArea("")}><FontAwesomeIcon icon={faXmark} /></button>
+            </header>
+            <div className="response-room-modal-legend" aria-label="คำอธิบายสถานะ">
+              <span><i className="accepted" />รับ iPad</span>
+              <span><i className="declined" />ไม่รับ iPad</span>
+              <span><i className="pending" />ยังไม่ลงทะเบียน</span>
+            </div>
+            <div className="response-room-grid response-room-modal-grid">
+              {selectedRooms.map((room) => {
+                const roomTotal = n(room.total), roomAccepted = n(room.accepted), roomDeclined = n(room.declined), roomPending = Math.max(0, roomTotal - roomAccepted - roomDeclined);
+                const href = `/admin/student-results?grade=${encodeURIComponent(selectedArea)}&room=${encodeURIComponent(s(room.room))}`;
+                return <Link className="response-room-card" href={href} key={`${selectedArea}-${s(room.room)}`} onClick={() => setSelectedArea("")}>
+                  <div><b>{selectedArea} / ห้อง {s(room.room)}</b><span>นักเรียน {roomTotal.toLocaleString("th-TH")} คน</span></div>
+                  <span className="response-room-arrow"><FontAwesomeIcon icon={faChevronRight}/></span>
+                  <div className="response-room-counts"><span className="accepted">รับ <b>{roomAccepted}</b></span><span className="declined">ไม่รับ <b>{roomDeclined}</b></span><span className="pending">ไม่ตอบ <b>{roomPending}</b></span></div>
+                </Link>;
+              })}
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }
 function Toolbar({
