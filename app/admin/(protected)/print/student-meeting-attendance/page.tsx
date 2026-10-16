@@ -73,8 +73,7 @@ export default async function StudentMeetingAttendancePage({
           <p>{filterText || (en ? "All grade levels and rooms" : "ทุกระดับชั้นและทุกห้อง")} · {en ? "Total" : "รวม"} {rows.length.toLocaleString(en ? "en-US" : "th-TH")} {en ? "students" : "คน"}</p>
           {grade && room && <p className="meeting-attendance-advisors"><b>{en ? "Class advisor" : "ครูที่ปรึกษา"}</b> {advisorNames.length ? advisorNames.join(" / ") : en ? "Not assigned" : "ยังไม่ได้กำหนด"}</p>}
           <div className="meeting-attendance-details">
-            <span><b>{en ? "Date" : "วันที่"}</b> {en ? "17 October 2026" : "17 ตุลาคม 2569"}</span>
-            <span><b>{en ? "Time" : "เวลา"}</b> {en ? "9:00 a.m." : "9.00 น."}</span>
+            <span><b>{en ? "Date" : "วันที่"}</b> {en ? "25 October 2026" : "25 ตุลาคม 2569"}</span>
             <span><b>{en ? "Venue" : "สถานที่"}</b> {en ? "Inthanon Auditorium" : "หอประชุมอินทนนท์"}</span>
           </div>
         </header>
@@ -93,8 +92,7 @@ export default async function StudentMeetingAttendancePage({
           <h1>{en ? "Additional Parent Meeting Attendance Sheet" : "บัญชีลงชื่อเข้าร่วมประชุม ผู้ปกครอง (เพิ่มเติม)"}</h1>
           <p>{en ? "Briefing on receiving and using iPads under the Anywhere Anytime project" : "การประชุมชี้แจงแนวทางการรับและใช้งาน iPad ตามโครงการ Anywhere Anytime"}</p>
           <div className="meeting-attendance-details">
-            <span><b>{en ? "Date" : "วันที่"}</b> {en ? "17 October 2026" : "17 ตุลาคม 2569"}</span>
-            <span><b>{en ? "Time" : "เวลา"}</b> {en ? "9:00 a.m." : "9.00 น."}</span>
+            <span><b>{en ? "Date" : "วันที่"}</b> {en ? "25 October 2026" : "25 ตุลาคม 2569"}</span>
             <span><b>{en ? "Venue" : "สถานที่"}</b> {en ? "Inthanon Auditorium" : "หอประชุมอินทนนท์"}</span>
           </div>
         </header>
