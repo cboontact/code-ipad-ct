@@ -486,9 +486,11 @@ export function GuardianTrainingApp() {
             <div>
               <span className="eyebrow">รอบที่ {session.cycle}</span>
               <h2>
-                <FontAwesomeIcon icon={faPlay} /> รับชมวิดีโอให้ครบ
+                <FontAwesomeIcon icon={faPlay} /> รับชมวิดีโออย่างน้อย 70%
               </h2>
-              <p>ระบบบันทึกเวลารับชมจริง กรุณาเปิดหน้านี้ไว้จนวิดีโอจบ</p>
+              <p>
+                ระบบบันทึกเวลารับชมจริง เมื่อครบ 70% จะเปิดแบบทดสอบให้ทันที
+              </p>
             </div>
             <a
               className="button secondary"
@@ -511,7 +513,7 @@ export function GuardianTrainingApp() {
             </span>
           </div>
           <div className="training-video-note">
-            <FontAwesomeIcon icon={faClock} /> เมื่อรับชมครบ
+            <FontAwesomeIcon icon={faClock} /> รับชมอย่างน้อย 70%
             ระบบจะเปิดแบบทดสอบโดยอัตโนมัติ
           </div>
         </section>

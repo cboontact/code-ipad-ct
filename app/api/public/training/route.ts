@@ -12,6 +12,7 @@ import {
   createTrainingToken,
   studentIdFromTrainingToken,
   TRAINING_PASS_SCORE,
+  TRAINING_VIDEO_COMPLETION_RATIO,
   trainingCanSubmitIdentity,
   trainingCanTakeQuiz,
   youtubeVideoId,
@@ -296,8 +297,7 @@ export async function POST(request: Request) {
         Number(row.watched_seconds || 0) + (input.playing ? elapsed : 0),
       );
       const completed =
-        (input.ended && watched >= input.duration * 0.9) ||
-        watched >= input.duration * 0.97;
+        watched >= input.duration * TRAINING_VIDEO_COMPLETION_RATIO;
       const status = completed
         ? "VIDEO_COMPLETED"
         : row.status === "ASSIGNED"
@@ -334,7 +334,10 @@ export async function POST(request: Request) {
 
     if (input.action === "quiz") {
       if (!trainingCanTakeQuiz(row.status))
-        return json({ error: "กรุณารับชมวิดีโอให้ครบก่อนทำแบบทดสอบ" }, 409);
+        return json(
+          { error: "กรุณารับชมวิดีโออย่างน้อย 70% ก่อนทำแบบทดสอบ" },
+          409,
+        );
       const all = await db
         .prepare(
           `SELECT id,correct_answer FROM guardian_training_questions WHERE is_active=1 ORDER BY sort_order,id`,

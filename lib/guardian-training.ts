@@ -3,6 +3,7 @@ import { signToken, verifyToken } from "@/lib/security/crypto";
 export const TRAINING_TOKEN_TTL_SECONDS = 4 * 60 * 60;
 export const TRAINING_PASS_SCORE = 10;
 export const TRAINING_QUESTION_COUNT = 10;
+export const TRAINING_VIDEO_COMPLETION_RATIO = 0.7;
 
 type TrainingToken = {
   studentId: string;
