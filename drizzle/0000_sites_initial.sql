@@ -850,3 +850,41 @@ SET statement = 'iPad ในโครงการเป็นอุปกรณ�
     explanation = 'อุปกรณ์เป็นทรัพย์สินสำหรับยืมเรียนตลอดโครงการและต้องส่งคืนเมื่อจบชั้น ม.3 หรือ ม.6',
     updated_at = datetime('now')
 WHERE id = 'gtq-01';
+
+--> statement-breakpoint
+
+-- Source: migrations/0027_add_document_restore_accept_event.sql
+ALTER TABLE student_document_receipt_events RENAME TO student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+CREATE TABLE student_document_receipt_events (
+  id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL DEFAULT 'AWAT03',
+  action TEXT NOT NULL CHECK (action IN ('RECEIVE', 'CANCEL', 'WITHDRAW', 'RESTORE_ACCEPT')),
+  note TEXT,
+  processed_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL
+);
+
+--> statement-breakpoint
+
+INSERT INTO student_document_receipt_events
+  (id,student_id,document_type,action,note,processed_by,created_at)
+SELECT id,student_id,document_type,action,note,processed_by,created_at
+FROM student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+DROP TABLE student_document_receipt_events_old;
+
+--> statement-breakpoint
+
+CREATE INDEX student_document_receipt_events_created_idx
+  ON student_document_receipt_events(created_at DESC);
+
+--> statement-breakpoint
+
+CREATE INDEX student_document_receipt_events_student_idx
+  ON student_document_receipt_events(student_id, document_type, created_at DESC);

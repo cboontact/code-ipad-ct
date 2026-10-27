@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { requireAdminApi } from "@/lib/auth/admin";
-import { ensureDatabase, id, now } from "@/lib/db/runtime";
+import { ensureDatabase, getSettings, id, now } from "@/lib/db/runtime";
 import { apiError, json } from "@/lib/http";
 import { assertSameOrigin } from "@/lib/security/request";
 
@@ -31,10 +31,16 @@ const withdrawSchema = z.object({
   studentId: z.string().uuid(),
 });
 
+const restoreAcceptSchema = z.object({
+  action: z.literal("restore-accept"),
+  studentId: z.string().uuid(),
+});
+
 const actionSchema = z.discriminatedUnion("action", [
   receiveSchema,
   cancelSchema,
   withdrawSchema,
+  restoreAcceptSchema,
 ]);
 
 function pageNumber(value: string | null) {
@@ -94,6 +100,7 @@ export async function GET(request: Request) {
         .prepare(
           `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
+          r.pii_ciphertext,r.pii_iv,r.privacy_acknowledged_at,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           dr.received_at,receiver.display_name AS received_by_name,
           gt.status AS training_status,gx.student_id AS training_exempt,
@@ -118,9 +125,20 @@ export async function GET(request: Request) {
         Boolean(student.training_exempt) ||
         student.training_status === "APPROVED";
       const hasActiveHandover = student.handover_status === "ACTIVE";
+      const hasSavedRegistration = Boolean(
+        student.pii_ciphertext &&
+        student.pii_iv &&
+        student.privacy_acknowledged_at,
+      );
+      const restoreAcceptEligible =
+        student.public_locked === 1 &&
+        hasSavedRegistration &&
+        (student.decision === "DECLINE" || rejected);
       return json({
         student: {
           ...student,
+          pii_ciphertext: undefined,
+          pii_iv: undefined,
           eligible: accepted && !rejected && trainingReady,
           eligibilityReason: !accepted
             ? "นักเรียนยังไม่ได้ลงทะเบียนเลือกรับ iPad"
@@ -137,6 +155,16 @@ export async function GET(request: Request) {
               : hasActiveHandover
                 ? "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ"
                 : null,
+          restoreAcceptEligible,
+          restoreAcceptReason: restoreAcceptEligible
+            ? null
+            : student.public_locked !== 1
+              ? "นักเรียนยังไม่ได้ลงทะเบียนสำเร็จ"
+              : !hasSavedRegistration
+                ? "รายการนี้ไม่มีข้อมูลการลงทะเบียนรับ iPad เดิม จึงไม่สามารถเปลี่ยนโดยใช้ข้อมูลเดิมได้"
+                : accepted && !rejected
+                  ? "นักเรียนอยู่ในสถานะรับ iPad อยู่แล้ว"
+                  : "รายการนี้ไม่อยู่ในสถานะที่เปลี่ยนกลับเป็นรับ iPad ได้",
         },
       });
     }
@@ -147,7 +175,7 @@ export async function GET(request: Request) {
       const bindings: unknown[] = [];
       addStudentFilters(url, clauses, bindings);
       const action = url.searchParams.get("action");
-      if (action && ["RECEIVE", "CANCEL", "WITHDRAW"].includes(action)) {
+      if (action && ["RECEIVE", "CANCEL", "WITHDRAW", "RESTORE_ACCEPT"].includes(action)) {
         clauses.push("e.action=?");
         bindings.push(action);
       }
@@ -256,6 +284,113 @@ export async function POST(request: Request) {
     );
     const db = await ensureDatabase();
     const stamp = now();
+
+    if (input.action === "restore-accept") {
+      const student = await db
+        .prepare(
+          `SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,
+          r.decision,r.public_locked,r.approval_status,r.pii_ciphertext,r.pii_iv,
+          r.privacy_acknowledged_at
+        FROM students s
+        JOIN student_survey_responses r ON r.student_id=s.id
+        WHERE s.id=? AND s.is_active=1 LIMIT 1`,
+        )
+        .bind(input.studentId)
+        .first<{
+          id: string;
+          student_code: string;
+          prefix: string;
+          first_name: string;
+          last_name: string;
+          decision: string;
+          public_locked: number;
+          approval_status: string | null;
+          pii_ciphertext: string | null;
+          pii_iv: string | null;
+          privacy_acknowledged_at: string | null;
+        }>();
+      if (!student) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 404);
+      const hasSavedRegistration = Boolean(
+        student.pii_ciphertext &&
+        student.pii_iv &&
+        student.privacy_acknowledged_at,
+      );
+      const canRestore =
+        student.public_locked === 1 &&
+        hasSavedRegistration &&
+        (student.decision === "DECLINE" || student.approval_status === "REJECTED");
+      if (!canRestore)
+        return json(
+          {
+            error: !hasSavedRegistration
+              ? "ไม่พบข้อมูลการลงทะเบียนรับ iPad เดิม จึงไม่สามารถเปลี่ยนโดยไม่ลงทะเบียนใหม่ได้"
+              : "นักเรียนไม่ได้อยู่ในสถานะเปลี่ยนใจกลับมารับ iPad",
+          },
+          409,
+        );
+
+      const settings = await getSettings(db);
+      const configuredQuota = Number.parseInt(settings.student_ipad_quota ?? "1763", 10);
+      const capacity = Number.isFinite(configuredQuota) && configuredQuota >= 0
+        ? configuredQuota
+        : 1763;
+      const note = "เปลี่ยนใจกลับมารับ iPad โดยใช้ข้อมูลลงทะเบียนเดิม";
+      const updated = await db
+        .prepare(
+          `UPDATE student_survey_responses SET
+          decision='ACCEPT',approval_status='PENDING',approved_at=NULL,approved_by=NULL,
+          approval_note=?,updated_at=?,updated_by_admin_id=?
+        WHERE student_id=? AND public_locked=1
+          AND pii_ciphertext IS NOT NULL AND pii_iv IS NOT NULL
+          AND (decision='DECLINE' OR approval_status='REJECTED')
+          AND (SELECT COUNT(*) FROM student_survey_responses r
+            JOIN students s ON s.id=r.student_id
+            WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
+              AND r.approval_status!='REJECTED') < ?`,
+        )
+        .bind(note, stamp, admin.id, student.id, capacity)
+        .run();
+      if (Number(updated.meta.changes ?? 0) !== 1) {
+        const assigned = await db
+          .prepare(
+            `SELECT COUNT(*) AS count FROM student_survey_responses r
+            JOIN students s ON s.id=r.student_id
+            WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
+              AND r.approval_status!='REJECTED'`,
+          )
+          .first<{ count: number }>();
+        return json(
+          {
+            error: Number(assigned?.count ?? 0) >= capacity
+              ? "iPad สำหรับนักเรียนมีผู้ลงทะเบียนรับครบตามจำนวนแล้ว"
+              : "สถานะถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว กรุณาค้นหาใหม่",
+          },
+          409,
+        );
+      }
+      await db
+        .prepare(
+          `INSERT INTO student_document_receipt_events
+        (id,student_id,document_type,action,note,processed_by,created_at)
+        VALUES (?,?,?,'RESTORE_ACCEPT',?,?,?)`,
+        )
+        .bind(id(), student.id, DOCUMENT_TYPE, note, admin.id, stamp)
+        .run();
+      await audit(
+        db,
+        admin.id,
+        "RESTORE_STUDENT_ACCEPT_IPAD",
+        "student_survey_response",
+        student.id,
+        `เปลี่ยนกลับเป็นรับ iPad โดยใช้ข้อมูลเดิม รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`,
+      );
+      return json({
+        success: true,
+        studentId: student.id,
+        decision: "ACCEPT",
+        approvalStatus: "PENDING",
+      });
+    }
 
     if (input.action === "withdraw") {
       const student = await db

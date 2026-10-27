@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faArrowRotateLeft,
   faBan,
   faCheck,
   faChevronLeft,
@@ -23,7 +24,7 @@ import { toast } from "sonner";
 import { readJson } from "@/lib/client-json";
 
 type Row = Record<string, unknown>;
-type Tab = "QUICK" | "WITHDRAW" | "ROOM" | "HISTORY";
+type Tab = "QUICK" | "WITHDRAW" | "RESTORE_ACCEPT" | "ROOM" | "HISTORY";
 type Summary = { total: number; received: number; pending: number };
 type Option = { grade_level: string; room: string };
 const PAGE_SIZE = 50;
@@ -51,6 +52,17 @@ function DocumentStatus({ row }: { row: Row }) {
     <span className={`document-status ${received ? "received" : "pending"}`}>
       <FontAwesomeIcon icon={received ? faCircleCheck : faClock}/>
       {received ? "รับเอกสารแล้ว" : "ยังไม่ได้รับ"}
+    </span>
+  );
+}
+
+function StatusDecision({ row }: { row: Row }) {
+  const rejected = text(row.approval_status) === "REJECTED";
+  const accepts = text(row.decision) === "ACCEPT" && !rejected;
+  return (
+    <span className={`document-status ${accepts ? "received" : "declined"}`}>
+      <FontAwesomeIcon icon={accepts ? faCircleCheck : faUserXmark}/>
+      {accepts ? "รับ iPad" : "ไม่รับ iPad"}
     </span>
   );
 }
@@ -96,6 +108,11 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     quickStudent
     && text(quickStudent.student_code) === studentCode.trim()
     && quickStudent.withdrawEligible === true,
+  );
+  const quickReadyToRestore = Boolean(
+    quickStudent
+    && text(quickStudent.student_code) === studentCode.trim()
+    && quickStudent.restoreAcceptEligible === true,
   );
 
   function filterParams(mode: "list" | "history") {
@@ -169,7 +186,7 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     setSelectedIds([]);
     setQuickStudent(null);
     setStudentCode("");
-    if (next === "QUICK" || next === "WITHDRAW") window.setTimeout(() => codeInput.current?.focus(), 0);
+    if (next === "QUICK" || next === "WITHDRAW" || next === "RESTORE_ACCEPT") window.setTimeout(() => codeInput.current?.focus(), 0);
   }
 
   async function lookup(event: FormEvent) {
@@ -179,6 +196,10 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
     if (!code) { toast.warning("กรุณากรอกเลขประจำตัวนักเรียน"); return; }
     if (tab === "WITHDRAW" && quickReadyToWithdraw && quickStudent) {
       await withdraw(quickStudent);
+      return;
+    }
+    if (tab === "RESTORE_ACCEPT" && quickReadyToRestore && quickStudent) {
+      await restoreAccept(quickStudent);
       return;
     }
     if (tab === "QUICK" && quickReadyToReceive && quickStudent) {
@@ -217,6 +238,28 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
       await Promise.all([loadList(true), loadHistory(true)]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "เปลี่ยนสถานะไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restoreAccept(student: Row) {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/document-checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restore-accept", studentId: text(student.student_id) }),
+      });
+      const body = await readJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(body.error);
+      toast.success(`เปลี่ยน ${text(student.prefix)}${text(student.first_name)} ${text(student.last_name)} กลับเป็นรับ iPad แล้ว โดยใช้ข้อมูลเดิม`);
+      setQuickStudent(null);
+      setStudentCode("");
+      window.setTimeout(() => codeInput.current?.focus(), 0);
+      await Promise.all([loadList(true), loadHistory(true)]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "เปลี่ยนสถานะกลับเป็นรับ iPad ไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -304,6 +347,7 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
         <div className="document-checkin-tabs" role="tablist" aria-label="รูปแบบตรวจรับเอกสาร">
           <button type="button" role="tab" aria-selected={tab === "QUICK"} className={tab === "QUICK" ? "active" : ""} onClick={() => changeTab("QUICK")}><FontAwesomeIcon icon={faUserCheck}/><span>เช็คด่วน</span></button>
           <button type="button" role="tab" aria-selected={tab === "WITHDRAW"} className={tab === "WITHDRAW" ? "active" : ""} onClick={() => changeTab("WITHDRAW")}><FontAwesomeIcon icon={faUserXmark}/><span>เปลี่ยนใจไม่รับ</span></button>
+          <button type="button" role="tab" aria-selected={tab === "RESTORE_ACCEPT"} className={tab === "RESTORE_ACCEPT" ? "active" : ""} onClick={() => changeTab("RESTORE_ACCEPT")}><FontAwesomeIcon icon={faArrowRotateLeft}/><span>เปลี่ยนใจรับ</span></button>
           <button type="button" role="tab" aria-selected={tab === "ROOM"} className={tab === "ROOM" ? "active" : ""} onClick={() => changeTab("ROOM")}><FontAwesomeIcon icon={faSchool}/><span>ตรวจรายห้อง</span></button>
           <button type="button" role="tab" aria-selected={tab === "HISTORY"} className={tab === "HISTORY" ? "active" : ""} onClick={() => changeTab("HISTORY")}><FontAwesomeIcon icon={faHistory}/><span>ประวัติ</span></button>
         </div>
@@ -322,6 +366,25 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
               {!quickStudent ? <div className="document-quick-empty"><FontAwesomeIcon icon={faUserXmark}/><b>รอกรอกเลขประจำตัวนักเรียน</b><span>กด Enter ครั้งแรกเพื่อตรวจสอบ และกด Enter อีกครั้งเพื่อยืนยัน</span></div> : <>
                 <header><div><small>ข้อมูลนักเรียน</small><h3><StudentName row={quickStudent}/></h3><p>{text(quickStudent.grade_level)}/{text(quickStudent.room)}{quickStudent.class_number ? ` เลขที่ ${text(quickStudent.class_number)}` : ""} · รหัส {text(quickStudent.student_code)}</p></div><DocumentStatus row={quickStudent}/></header>
                 {quickStudent.withdrawEligible !== true ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.withdrawReason) || "รายการนี้ไม่สามารถเปลี่ยนเป็นไม่รับ iPad ได้"}</span></div> : <><div className="document-enter-hint withdraw"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันเปลี่ยนเป็นไม่รับ iPad และคืนโควตา</span></div><button type="button" className="button danger-solid document-receive-button" disabled={busy} onClick={() => void withdraw(quickStudent)}><FontAwesomeIcon icon={busy ? faSpinner : faUserXmark} spin={busy}/> ยืนยันเปลี่ยนใจไม่รับ iPad</button></>}
+              </>}
+            </div>
+          </div>
+        )}
+
+        {tab === "RESTORE_ACCEPT" && (
+          <div className="document-quick-layout document-restore-layout">
+            <div className="document-quick-entry">
+              <span className="document-quick-icon restore"><FontAwesomeIcon icon={faArrowRotateLeft}/></span>
+              <div><h2>เปลี่ยนใจกลับมารับ iPad</h2><p>{quickReadyToRestore ? "ตรวจสอบชื่อแล้วกด Enter อีกครั้งเพื่อยืนยัน" : "ใช้ข้อมูลลงทะเบียนและ AWAT-03 เดิม นักเรียนไม่ต้องลงทะเบียนใหม่"}</p></div>
+              <form onSubmit={lookup}>
+                <label className="field"><span>เลขประจำตัวนักเรียน</span><input ref={codeInput} autoFocus inputMode="numeric" autoComplete="off" value={studentCode} onChange={(event) => { const nextCode = event.target.value; setStudentCode(nextCode); if (quickStudent && text(quickStudent.student_code) !== nextCode.trim()) setQuickStudent(null); }} placeholder="เช่น 23964"/></label>
+                <button className="button primary" disabled={busy}><FontAwesomeIcon icon={busy ? faSpinner : quickReadyToRestore ? faArrowRotateLeft : faMagnifyingGlass} spin={busy}/> {busy ? "กำลังดำเนินการ..." : quickReadyToRestore ? "ยืนยันรับ iPad" : "ตรวจสอบ"}</button>
+              </form>
+            </div>
+            <div className={`document-quick-result${quickStudent ? " has-result" : ""}`}>
+              {!quickStudent ? <div className="document-quick-empty"><FontAwesomeIcon icon={faArrowRotateLeft}/><b>รอกรอกเลขประจำตัวนักเรียน</b><span>ระบบจะตรวจว่ามีข้อมูลลงทะเบียนรับ iPad เดิมครบหรือไม่</span></div> : <>
+                <header><div><small>ข้อมูลนักเรียน</small><h3><StudentName row={quickStudent}/></h3><p>{text(quickStudent.grade_level)}/{text(quickStudent.room)}{quickStudent.class_number ? ` เลขที่ ${text(quickStudent.class_number)}` : ""} · รหัส {text(quickStudent.student_code)}</p></div><StatusDecision row={quickStudent}/></header>
+                {quickStudent.restoreAcceptEligible !== true ? <div className="document-ineligible"><FontAwesomeIcon icon={faBan}/><span>{text(quickStudent.restoreAcceptReason) || "รายการนี้ไม่สามารถเปลี่ยนกลับเป็นรับ iPad ได้"}</span></div> : <><div className="document-enter-hint restore"><kbd>Enter</kbd><span>กดอีกครั้งเพื่อยืนยันใช้ข้อมูลเดิม และส่งรายการกลับไปรออนุมัติ</span></div><button type="button" className="button primary document-receive-button" disabled={busy} onClick={() => void restoreAccept(quickStudent)}><FontAwesomeIcon icon={busy ? faSpinner : faArrowRotateLeft} spin={busy}/> ยืนยันเปลี่ยนใจรับ iPad</button></>}
               </>}
             </div>
           </div>
@@ -371,9 +434,9 @@ export function DocumentCheckin({ canCancel }: { canCancel: boolean }) {
             <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass}/><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ค้นหารหัสหรือชื่อนักเรียน..."/></label>
             <select className="admin-input" value={grade} onChange={(event) => { setGrade(event.target.value); setRoom(""); setPage(1); }} aria-label="กรองระดับชั้น"><option value="">ทุกระดับชั้น</option>{grades.map((item) => <option key={item}>{item}</option>)}</select>
             <select className="admin-input" value={room} onChange={(event) => { setRoom(event.target.value); setPage(1); }} aria-label="กรองห้อง"><option value="">ทุกห้อง</option>{rooms.map((item) => <option key={item} value={item}>/{item}</option>)}</select>
-            <select className="admin-input" value={historyAction} onChange={(event) => { setHistoryAction(event.target.value); setPage(1); }} aria-label="กรองการดำเนินการ"><option value="">ทุกการดำเนินการ</option><option value="RECEIVE">รับเอกสาร</option><option value="WITHDRAW">เปลี่ยนใจไม่รับ iPad</option><option value="CANCEL">ยกเลิกสถานะ</option></select>
+            <select className="admin-input" value={historyAction} onChange={(event) => { setHistoryAction(event.target.value); setPage(1); }} aria-label="กรองการดำเนินการ"><option value="">ทุกการดำเนินการ</option><option value="RECEIVE">รับเอกสาร</option><option value="WITHDRAW">เปลี่ยนใจไม่รับ iPad</option><option value="RESTORE_ACCEPT">เปลี่ยนใจรับ iPad</option><option value="CANCEL">ยกเลิกสถานะ</option></select>
           </div>
-          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดประวัติ...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-history-table"><thead><tr><th>วันเวลา</th><th>นักเรียน</th><th>ชั้น / ห้อง</th><th>การดำเนินการ</th><th>ผู้ดำเนินการ</th><th>หมายเหตุ</th></tr></thead><tbody>{historyRows.map((row) => { const action=text(row.action); return <tr key={text(row.id)}><td>{formatDateTime(row.created_at)}</td><td><b>{text(row.student_code)}</b><span><StudentName row={row}/></span></td><td>{text(row.grade_level)}/{text(row.room)}</td><td><span className={`document-event ${action.toLowerCase()}`}><FontAwesomeIcon icon={action === "RECEIVE" ? faCircleCheck : action === "WITHDRAW" ? faUserXmark : faBan}/>{action === "RECEIVE" ? "รับเอกสาร" : action === "WITHDRAW" ? "เปลี่ยนใจไม่รับ iPad" : "ยกเลิกสถานะ"}</span></td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td><td>{text(row.note) || "—"}</td></tr>; })}</tbody></table>{!historyRows.length && <div className="empty-state small">ยังไม่มีประวัติตามตัวกรอง</div>}<Pagination page={page} pages={historyPages} total={historyTotal} setPage={setPage}/></div>}
+          {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin/> กำลังโหลดประวัติ...</div> : <div className="admin-table-wrap document-table-wrap"><table className="admin-table document-history-table"><thead><tr><th>วันเวลา</th><th>นักเรียน</th><th>ชั้น / ห้อง</th><th>การดำเนินการ</th><th>ผู้ดำเนินการ</th><th>หมายเหตุ</th></tr></thead><tbody>{historyRows.map((row) => { const action=text(row.action); const restored=action === "RESTORE_ACCEPT"; return <tr key={text(row.id)}><td>{formatDateTime(row.created_at)}</td><td><b>{text(row.student_code)}</b><span><StudentName row={row}/></span></td><td>{text(row.grade_level)}/{text(row.room)}</td><td><span className={`document-event ${action.toLowerCase()}`}><FontAwesomeIcon icon={action === "RECEIVE" ? faCircleCheck : action === "WITHDRAW" ? faUserXmark : restored ? faArrowRotateLeft : faBan}/>{action === "RECEIVE" ? "รับเอกสาร" : action === "WITHDRAW" ? "เปลี่ยนใจไม่รับ iPad" : restored ? "เปลี่ยนใจรับ iPad" : "ยกเลิกสถานะ"}</span></td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td><td>{text(row.note) || "—"}</td></tr>; })}</tbody></table>{!historyRows.length && <div className="empty-state small">ยังไม่มีประวัติตามตัวกรอง</div>}<Pagination page={page} pages={historyPages} total={historyTotal} setPage={setPage}/></div>}
         </>}
       </section>
 
