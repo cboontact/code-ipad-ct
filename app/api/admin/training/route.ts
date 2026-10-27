@@ -11,10 +11,11 @@ const PAGE_SIZE = 50;
 
 const assignSchema = z.object({action:z.literal("assign"),studentIds:z.array(z.string().uuid()).min(1).max(50)});
 const unassignSchema = z.object({action:z.literal("unassign"),studentIds:z.array(z.string().uuid()).min(1).max(50)});
+const allowQuizSchema = z.object({action:z.literal("allowQuiz"),studentIds:z.array(z.string().uuid()).min(1).max(50)});
 const approveSchema = z.object({action:z.literal("approve"),studentId:z.string().uuid(),note:z.string().trim().max(500).optional().default("")});
 const rejectSchema = z.object({action:z.literal("reject"),studentId:z.string().uuid(),note:z.string().trim().min(3,"กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร").max(500)});
 const resetSchema = z.object({action:z.literal("reset"),studentId:z.string().uuid(),note:z.string().trim().max(500).optional().default("")});
-const actionSchema = z.discriminatedUnion("action",[assignSchema,unassignSchema,approveSchema,rejectSchema,resetSchema]);
+const actionSchema = z.discriminatedUnion("action",[assignSchema,unassignSchema,allowQuizSchema,approveSchema,rejectSchema,resetSchema]);
 
 function positivePage(value:string|null){const parsed=Number.parseInt(value??"1",10);return Number.isFinite(parsed)&&parsed>0?parsed:1;}
 
@@ -88,6 +89,30 @@ export async function POST(request:Request) {
       await Promise.all((stored.results??[]).map(row=>row.selfie_object_key?getEnv().FILES.delete(row.selfie_object_key):Promise.resolve()));
       await audit(db,admin.id,"UNASSIGN_GUARDIAN_TRAINING","guardian_training",null,`ยกเลิกผู้ต้องอบรมทดแทน ${input.studentIds.length} คน`);
       return json({success:true});
+    }
+    if(input.action==="allowQuiz"){
+      const placeholders=input.studentIds.map(()=>"?").join(",");
+      const eligible=await db.prepare(`SELECT student_id,status FROM guardian_training_assignments
+        WHERE student_id IN (${placeholders}) AND status IN ('ASSIGNED','IN_PROGRESS','QUIZ_FAILED','VIDEO_COMPLETED')`)
+        .bind(...input.studentIds).all<{student_id:string;status:string}>();
+      const candidates=eligible.results??[];
+      if(!candidates.length)return json({error:"ไม่มีรายการที่สามารถเปิดแบบทดสอบได้"},409);
+      await db.batch(candidates.flatMap(item=>[
+        db.prepare(`UPDATE guardian_training_assignments SET
+          status='VIDEO_COMPLETED',
+          cycle=CASE WHEN status='QUIZ_FAILED' THEN cycle+1 ELSE cycle END,
+          quiz_score=CASE WHEN status='QUIZ_FAILED' THEN NULL ELSE quiz_score END,
+          last_progress_at=?,updated_at=?
+          WHERE student_id=? AND status IN ('ASSIGNED','IN_PROGRESS','QUIZ_FAILED','VIDEO_COMPLETED')`)
+          .bind(stamp,stamp,item.student_id),
+        db.prepare(`INSERT INTO guardian_training_events
+          (id,student_id,action,description,processed_by,created_at)
+          VALUES (?,?,'ALLOW_QUIZ','ผู้ดูแลอนุญาตให้ข้ามการรับชมวิดีโอและทำแบบทดสอบได้ทันที',?,?)`)
+          .bind(id(),item.student_id,admin.id,stamp),
+      ]));
+      await audit(db,admin.id,"ALLOW_GUARDIAN_TRAINING_QUIZ","guardian_training",candidates.length===1?candidates[0].student_id:null,
+        `อนุญาตให้ข้ามวิดีโอและทำแบบทดสอบ ${candidates.length} คน`);
+      return json({success:true,updated:candidates.length});
     }
     const assignment=await db.prepare("SELECT status,selfie_object_key FROM guardian_training_assignments WHERE student_id=?").bind(input.studentId).first<{status:string;selfie_object_key:string|null}>();
     if(!assignment)return json({error:"ไม่พบรายการอบรม"},404);
