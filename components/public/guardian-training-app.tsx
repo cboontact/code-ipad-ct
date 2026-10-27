@@ -425,6 +425,23 @@ export function GuardianTrainingApp() {
     : 0;
   const identityStage =
     session.status === "QUIZ_PASSED" || session.status === "REJECTED";
+  const currentStep = ["ASSIGNED", "IN_PROGRESS"].includes(session.status)
+    ? 1
+    : ["VIDEO_COMPLETED", "QUIZ_FAILED"].includes(session.status)
+      ? 2
+      : ["QUIZ_PASSED", "REJECTED"].includes(session.status)
+        ? 3
+        : session.status === "REVIEW_PENDING"
+          ? 4
+          : session.status === "APPROVED"
+            ? 5
+            : 1;
+  const trainingSteps = [
+    "รับชมวิดีโอ",
+    "แบบทดสอบ",
+    "ยืนยันตัวตน",
+    "โรงเรียนอนุมัติ",
+  ];
   return (
     <main className="shell public-main training-page">
       <section className="training-session-header">
@@ -445,54 +462,24 @@ export function GuardianTrainingApp() {
         </button>
       </section>
       <div className="training-steps">
-        <span
-          className={
-            [
-              "ASSIGNED",
-              "IN_PROGRESS",
-              "VIDEO_COMPLETED",
-              "QUIZ_FAILED",
-              "QUIZ_PASSED",
-              "REVIEW_PENDING",
-              "APPROVED",
-              "REJECTED",
-            ].includes(session.status)
-              ? "active"
-              : ""
-          }
-        >
-          1 รับชมวิดีโอ
-        </span>
-        <span
-          className={
-            [
-              "VIDEO_COMPLETED",
-              "QUIZ_FAILED",
-              "QUIZ_PASSED",
-              "REVIEW_PENDING",
-              "APPROVED",
-              "REJECTED",
-            ].includes(session.status)
-              ? "active"
-              : ""
-          }
-        >
-          2 แบบทดสอบ
-        </span>
-        <span
-          className={
-            ["QUIZ_PASSED", "REVIEW_PENDING", "APPROVED", "REJECTED"].includes(
-              session.status,
-            )
-              ? "active"
-              : ""
-          }
-        >
-          3 ยืนยันตัวตน
-        </span>
-        <span className={session.status === "APPROVED" ? "active" : ""}>
-          4 โรงเรียนอนุมัติ
-        </span>
+        {trainingSteps.map((label, index) => {
+          const step = index + 1;
+          const completed = step < currentStep;
+          const active = step === currentStep;
+          return (
+            <span
+              key={label}
+              className={completed ? "completed" : active ? "active" : ""}
+            >
+              {completed ? (
+                <FontAwesomeIcon icon={faCheck} aria-hidden="true" />
+              ) : (
+                <b>{step}</b>
+              )}{" "}
+              {label}
+            </span>
+          );
+        })}
       </div>
       {["ASSIGNED", "IN_PROGRESS"].includes(session.status) && (
         <section className="flow-card training-video-card">
