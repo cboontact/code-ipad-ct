@@ -236,7 +236,7 @@ export function GuardianTrainingAdmin() {
           <div className="training-bulk-actions">
             <b>เลือก {selected.length} คน</b>
             <button
-              className="button warning"
+              className="button secondary"
               disabled={busy}
               onClick={() =>
                 void action(
