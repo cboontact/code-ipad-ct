@@ -28,10 +28,14 @@ export interface PrintableStudent {
   settings: Record<string, string>;
 }
 
-export async function getPrintableStudent(studentId: string): Promise<PrintableStudent | null> {
+export async function getPrintableStudent(
+  studentId: string,
+): Promise<PrintableStudent | null> {
   const db = await ensureDatabase();
   const settings = await getSettings(db);
-  const row = await db.prepare(`SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.phone,
+  const row = await db
+    .prepare(
+      `SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.phone,
     r.id AS response_id,r.submitted_at,r.pii_ciphertext,r.pii_iv,d.serial_number,
     advisor1.prefix || advisor1.first_name || ' ' || advisor1.last_name ||
       CASE WHEN advisor2.id IS NOT NULL THEN ' / ' || advisor2.prefix || advisor2.first_name || ' ' || advisor2.last_name ELSE '' END AS advisor_name,
@@ -47,27 +51,47 @@ export async function getPrintableStudent(studentId: string): Promise<PrintableS
     LEFT JOIN teachers advisor2 ON advisor2.id=ca2.teacher_id
     WHERE s.id=? AND r.decision='ACCEPT' AND r.public_locked=1
       AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
-      AND NOT EXISTS (SELECT 1 FROM guardian_training_assignments gta
-        WHERE gta.student_id=s.id AND gta.status!='APPROVED')`).bind(studentId).first<{
-      id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;phone:string|null;
-      response_id:string;submitted_at:string;pii_ciphertext:string;pii_iv:string;serial_number:string|null;advisor_name:string|null;document_number:number;
+      AND (EXISTS (SELECT 1 FROM guardian_training_exemptions gte WHERE gte.student_id=s.id)
+        OR EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status='APPROVED')
+        OR EXISTS (SELECT 1 FROM student_device_handovers gth WHERE gth.student_id=s.id AND gth.status='ACTIVE'))`,
+    )
+    .bind(studentId)
+    .first<{
+      id: string;
+      student_code: string;
+      prefix: string;
+      first_name: string;
+      last_name: string;
+      grade_level: string;
+      room: string;
+      phone: string | null;
+      response_id: string;
+      submitted_at: string;
+      pii_ciphertext: string;
+      pii_iv: string;
+      serial_number: string | null;
+      advisor_name: string | null;
+      document_number: number;
     }>();
   if (!row?.pii_ciphertext || !row.pii_iv) return null;
-  const pii = await decryptJson<StudentPersonalData>(row.pii_ciphertext,row.pii_iv);
+  const pii = await decryptJson<StudentPersonalData>(
+    row.pii_ciphertext,
+    row.pii_iv,
+  );
   return {
-    id:row.id,
-    documentNumber:Number(row.document_number||1),
-    documentYear:new Date(row.submitted_at).getUTCFullYear()+543,
-    borrowerName:`${row.prefix}${row.first_name} ${row.last_name}`,
-    studentCode:row.student_code,
-    gradeLevel:row.grade_level,
-    room:row.room,
-    advisorName:row.advisor_name??"",
-    phone:row.phone??"",
-    serialNumber:row.serial_number??"",
+    id: row.id,
+    documentNumber: Number(row.document_number || 1),
+    documentYear: new Date(row.submitted_at).getUTCFullYear() + 543,
+    borrowerName: `${row.prefix}${row.first_name} ${row.last_name}`,
+    studentCode: row.student_code,
+    gradeLevel: row.grade_level,
+    room: row.room,
+    advisorName: row.advisor_name ?? "",
+    phone: row.phone ?? "",
+    serialNumber: row.serial_number ?? "",
     settings,
     ...pii,
-    guardianPrefix:pii.guardianPrefix??"",
+    guardianPrefix: pii.guardianPrefix ?? "",
   };
 }
 
@@ -79,12 +103,18 @@ export interface StudentPrintFilters {
   approval?: string;
 }
 
-export async function getAcceptedStudentIds(filters: StudentPrintFilters = {}): Promise<string[]> {
+export async function getAcceptedStudentIds(
+  filters: StudentPrintFilters = {},
+): Promise<string[]> {
   if (filters.status && filters.status !== "ACCEPT") return [];
 
   const db = await ensureDatabase();
-  const clauses = ["s.is_active=1", "r.decision='ACCEPT'", "r.public_locked=1",
-    "NOT EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status!='APPROVED')"];
+  const clauses = [
+    "s.is_active=1",
+    "r.decision='ACCEPT'",
+    "r.public_locked=1",
+    "(EXISTS (SELECT 1 FROM guardian_training_exemptions gte WHERE gte.student_id=s.id) OR EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status='APPROVED') OR EXISTS (SELECT 1 FROM student_device_handovers gth WHERE gth.student_id=s.id AND gth.status='ACTIVE'))",
+  ];
   const values: string[] = [];
   const grade = filters.grade?.trim();
   const room = filters.room?.trim();
@@ -107,14 +137,19 @@ export async function getAcceptedStudentIds(filters: StudentPrintFilters = {}): 
     clauses.push(`(s.student_code LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?
       OR (s.prefix || s.first_name || ' ' || s.last_name) LIKE ?)`);
     const pattern = `%${search}%`;
-    values.push(pattern,pattern,pattern,pattern);
+    values.push(pattern, pattern, pattern, pattern);
   }
 
-  const result = await db.prepare(`SELECT s.id FROM students s
+  const result = await db
+    .prepare(
+      `SELECT s.id FROM students s
     JOIN student_survey_responses r ON r.student_id=s.id
     WHERE ${clauses.join(" AND ")}
-    ORDER BY s.grade_level,s.room,s.class_number,r.submitted_at,r.id`).bind(...values).all<{id:string}>();
-  return (result.results ?? []).map(row => row.id);
+    ORDER BY s.grade_level,s.room,s.class_number,r.submitted_at,r.id`,
+    )
+    .bind(...values)
+    .all<{ id: string }>();
+  return (result.results ?? []).map((row) => row.id);
 }
 
 export interface StudentRecipientRow {
@@ -150,8 +185,14 @@ export async function getStudentRecipientList(
   const status = filters.status?.trim();
   const search = filters.search?.trim();
   if (status && status !== "ACCEPT") clauses.push("1=0");
-  if (grade) { clauses.push("s.grade_level=?"); values.push(grade); }
-  if (room) { clauses.push("s.room=?"); values.push(room); }
+  if (grade) {
+    clauses.push("s.grade_level=?");
+    values.push(grade);
+  }
+  if (room) {
+    clauses.push("s.room=?");
+    values.push(room);
+  }
   if (approval) {
     if (approval === "REJECTED") clauses.push("1=0");
     else {
@@ -165,8 +206,12 @@ export async function getStudentRecipientList(
       OR (s.prefix || s.first_name || ' ' || s.last_name) LIKE ?)`);
     values.push(pattern, pattern, pattern, pattern);
   }
-  const guardianColumns = options.includeGuardian ? ",r.pii_ciphertext,r.pii_iv" : "";
-  const result = await db.prepare(`SELECT s.student_code,s.prefix,s.first_name,s.last_name,
+  const guardianColumns = options.includeGuardian
+    ? ",r.pii_ciphertext,r.pii_iv"
+    : "";
+  const result = await db
+    .prepare(
+      `SELECT s.student_code,s.prefix,s.first_name,s.last_name,
       s.grade_level,s.room,s.class_number,COALESCE(r.approval_status,'PENDING') AS approval_status,
       CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END AS document_received,
       CASE WHEN h.status='ACTIVE' THEN 1 ELSE 0 END AS device_received,
@@ -176,44 +221,68 @@ export async function getStudentRecipientList(
     LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type='AWAT03'
     LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
     WHERE ${clauses.join(" AND ")}
-    ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room,CAST(s.class_number AS INTEGER),s.first_name,s.last_name`)
-    .bind(...values).all<{
-      student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;
-      room:string;class_number:string|null;approval_status:string;document_received:number;
-      device_received:number;handed_over_at:string|null;pii_ciphertext?:string;pii_iv?:string;
+    ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room,CAST(s.class_number AS INTEGER),s.first_name,s.last_name`,
+    )
+    .bind(...values)
+    .all<{
+      student_code: string;
+      prefix: string;
+      first_name: string;
+      last_name: string;
+      grade_level: string;
+      room: string;
+      class_number: string | null;
+      approval_status: string;
+      document_received: number;
+      device_received: number;
+      handed_over_at: string | null;
+      pii_ciphertext?: string;
+      pii_iv?: string;
     }>();
-  const rows: StudentRecipientRow[] = await Promise.all((result.results ?? []).map(async row => {
-    let guardianFullName = "";
-    if (options.includeGuardian && row.pii_ciphertext && row.pii_iv) {
-      try {
-        const pii = await decryptJson<StudentPersonalData>(row.pii_ciphertext, row.pii_iv);
-        guardianFullName = `${pii.guardianPrefix ?? ""}${pii.guardianName ?? ""}`.trim();
-      } catch {
-        guardianFullName = "";
+  const rows: StudentRecipientRow[] = await Promise.all(
+    (result.results ?? []).map(async (row) => {
+      let guardianFullName = "";
+      if (options.includeGuardian && row.pii_ciphertext && row.pii_iv) {
+        try {
+          const pii = await decryptJson<StudentPersonalData>(
+            row.pii_ciphertext,
+            row.pii_iv,
+          );
+          guardianFullName =
+            `${pii.guardianPrefix ?? ""}${pii.guardianName ?? ""}`.trim();
+        } catch {
+          guardianFullName = "";
+        }
       }
-    }
-    return {
-      studentCode: row.student_code,
-      fullName: `${row.prefix}${row.first_name} ${row.last_name}`,
-      guardianFullName,
-      gradeLevel: row.grade_level,
-      room: row.room,
-      classNumber: row.class_number ?? "",
-      documentReceived: row.document_received === 1,
-      approvalStatus: row.approval_status,
-      deviceReceived: row.device_received === 1,
-      handedOverAt: row.handed_over_at ?? "",
-    };
-  }));
+      return {
+        studentCode: row.student_code,
+        fullName: `${row.prefix}${row.first_name} ${row.last_name}`,
+        guardianFullName,
+        gradeLevel: row.grade_level,
+        room: row.room,
+        classNumber: row.class_number ?? "",
+        documentReceived: row.document_received === 1,
+        approvalStatus: row.approval_status,
+        deviceReceived: row.device_received === 1,
+        handedOverAt: row.handed_over_at ?? "",
+      };
+    }),
+  );
   let advisorNames: string[] = [];
   if (grade && room) {
-    const advisors = await db.prepare(`SELECT t.prefix,t.first_name,t.last_name
+    const advisors = await db
+      .prepare(
+        `SELECT t.prefix,t.first_name,t.last_name
       FROM class_advisors ca
       JOIN teachers t ON t.id=ca.teacher_id
       WHERE ca.grade_level=? AND ca.room=? AND t.is_active=1
-      ORDER BY ca.advisor_order,t.sort_order,t.first_name,t.last_name`)
-      .bind(grade,room).all<{prefix:string;first_name:string;last_name:string}>();
-    advisorNames = (advisors.results ?? []).map(item => `${item.prefix}${item.first_name} ${item.last_name}`);
+      ORDER BY ca.advisor_order,t.sort_order,t.first_name,t.last_name`,
+      )
+      .bind(grade, room)
+      .all<{ prefix: string; first_name: string; last_name: string }>();
+    advisorNames = (advisors.results ?? []).map(
+      (item) => `${item.prefix}${item.first_name} ${item.last_name}`,
+    );
   }
   return { rows, settings, advisorNames };
 }

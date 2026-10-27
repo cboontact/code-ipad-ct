@@ -817,3 +817,27 @@ SET statement='หากเครื่องเสียหายจากก�
     explanation='ความเสียหายผิดปกติหรืออุปกรณ์สูญหายอาจมีค่าใช้จ่ายตามรายการ และห้ามแกะ ดัดแปลง หรือซ่อมเอง',
     updated_at=datetime('now')
 WHERE id='gtq-07';
+
+--> statement-breakpoint
+
+-- Source: migrations/0025_guardian_training_exemptions_pdpa.sql
+CREATE TABLE IF NOT EXISTS guardian_training_exemptions (
+  student_id TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  reason TEXT,
+  exempted_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+  exempted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+--> statement-breakpoint
+
+CREATE INDEX IF NOT EXISTS guardian_training_exemptions_date_idx
+  ON guardian_training_exemptions(exempted_at DESC);
+
+--> statement-breakpoint
+
+ALTER TABLE guardian_training_assignments ADD COLUMN consent_version TEXT;
+
+--> statement-breakpoint
+
+ALTER TABLE guardian_training_assignments ADD COLUMN consent_user_agent TEXT;

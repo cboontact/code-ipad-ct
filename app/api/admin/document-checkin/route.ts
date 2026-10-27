@@ -19,7 +19,11 @@ const receiveSchema = z.object({
 const cancelSchema = z.object({
   action: z.literal("cancel"),
   studentIds: z.array(z.string().uuid()).min(1).max(PAGE_SIZE),
-  reason: z.string().trim().min(3, "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร").max(500),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร")
+    .max(500),
 });
 
 const withdrawSchema = z.object({
@@ -27,18 +31,18 @@ const withdrawSchema = z.object({
   studentId: z.string().uuid(),
 });
 
-const actionSchema = z.discriminatedUnion("action", [receiveSchema, cancelSchema, withdrawSchema]);
+const actionSchema = z.discriminatedUnion("action", [
+  receiveSchema,
+  cancelSchema,
+  withdrawSchema,
+]);
 
 function pageNumber(value: string | null) {
   const parsed = Number.parseInt(value ?? "1", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function addStudentFilters(
-  url: URL,
-  clauses: string[],
-  bindings: unknown[],
-) {
+function addStudentFilters(url: URL, clauses: string[], bindings: unknown[]) {
   const grade = url.searchParams.get("grade")?.trim();
   const room = url.searchParams.get("room")?.trim();
   const search = url.searchParams.get("search")?.trim().toLowerCase();
@@ -72,7 +76,7 @@ const eligibleClauses = [
   "r.public_locked=1",
   "r.decision='ACCEPT'",
   "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
-  "NOT EXISTS (SELECT 1 FROM guardian_training_assignments gt WHERE gt.student_id=s.id AND gt.status!='APPROVED')",
+  "(EXISTS (SELECT 1 FROM guardian_training_exemptions gx WHERE gx.student_id=s.id) OR EXISTS (SELECT 1 FROM guardian_training_assignments gt WHERE gt.student_id=s.id AND gt.status='APPROVED'))",
 ];
 
 export async function GET(request: Request) {
@@ -84,12 +88,15 @@ export async function GET(request: Request) {
 
     if (mode === "lookup") {
       const studentCode = url.searchParams.get("studentCode")?.trim();
-      if (!studentCode) return json({ error: "กรุณากรอกเลขประจำตัวนักเรียน" }, 400);
-      const student = await db.prepare(`SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
+      if (!studentCode)
+        return json({ error: "กรุณากรอกเลขประจำตัวนักเรียน" }, 400);
+      const student = await db
+        .prepare(
+          `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           dr.received_at,receiver.display_name AS received_by_name,
-          gt.status AS training_status,
+          gt.status AS training_status,gx.student_id AS training_exempt,
           CASE WHEN h.status='ACTIVE' THEN 'ACTIVE' ELSE NULL END AS handover_status
         FROM students s
         LEFT JOIN student_survey_responses r ON r.student_id=s.id
@@ -97,12 +104,19 @@ export async function GET(request: Request) {
         LEFT JOIN admin_users receiver ON receiver.id=dr.received_by
         LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
         LEFT JOIN guardian_training_assignments gt ON gt.student_id=s.id
+        LEFT JOIN guardian_training_exemptions gx ON gx.student_id=s.id
         WHERE s.student_code=? AND s.is_active=1
-        LIMIT 1`).bind(DOCUMENT_TYPE, studentCode).first<Record<string, unknown>>();
+        LIMIT 1`,
+        )
+        .bind(DOCUMENT_TYPE, studentCode)
+        .first<Record<string, unknown>>();
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
-      const accepted = student.public_locked === 1 && student.decision === "ACCEPT";
+      const accepted =
+        student.public_locked === 1 && student.decision === "ACCEPT";
       const rejected = student.approval_status === "REJECTED";
-      const trainingReady = !student.training_status || student.training_status === "APPROVED";
+      const trainingReady =
+        Boolean(student.training_exempt) ||
+        student.training_status === "APPROVED";
       const hasActiveHandover = student.handover_status === "ACTIVE";
       return json({
         student: {
@@ -121,8 +135,8 @@ export async function GET(request: Request) {
             : rejected
               ? "รายการนี้ถูกเปลี่ยนเป็นไม่รับ iPad แล้ว"
               : hasActiveHandover
-                  ? "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ"
-                  : null,
+                ? "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ"
+                : null,
         },
       });
     }
@@ -138,11 +152,17 @@ export async function GET(request: Request) {
         bindings.push(action);
       }
       const where = `WHERE ${clauses.join(" AND ")}`;
-      const count = await db.prepare(`SELECT COUNT(*) AS count
+      const count = await db
+        .prepare(
+          `SELECT COUNT(*) AS count
         FROM student_document_receipt_events e
-        JOIN students s ON s.id=e.student_id ${where}`)
-        .bind(...bindings).first<{ count: number }>();
-      const result = await db.prepare(`SELECT e.id,e.action,e.note,e.created_at,
+        JOIN students s ON s.id=e.student_id ${where}`,
+        )
+        .bind(...bindings)
+        .first<{ count: number }>();
+      const result = await db
+        .prepare(
+          `SELECT e.id,e.action,e.note,e.created_at,
           s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,a.display_name AS processed_by_name
         FROM student_document_receipt_events e
@@ -150,7 +170,10 @@ export async function GET(request: Request) {
         LEFT JOIN admin_users a ON a.id=e.processed_by
         ${where}
         ORDER BY e.created_at DESC
-        LIMIT ? OFFSET ?`).bind(...bindings, PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
+        LIMIT ? OFFSET ?`,
+        )
+        .bind(...bindings, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+        .all();
       return json({
         rows: result.results ?? [],
         page,
@@ -167,27 +190,46 @@ export async function GET(request: Request) {
     const listClauses = [...baseClauses];
     const listBindings = [...baseBindings];
     if (status === "RECEIVED") listClauses.push("dr.status='RECEIVED'");
-    if (status === "PENDING") listClauses.push("(dr.status IS NULL OR dr.status!='RECEIVED')");
+    if (status === "PENDING")
+      listClauses.push("(dr.status IS NULL OR dr.status!='RECEIVED')");
 
     const [summary, count, rows, options] = await Promise.all([
-      db.prepare(`SELECT COUNT(*) AS total,
+      db
+        .prepare(
+          `SELECT COUNT(*) AS total,
           SUM(CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END) AS received
-        ${eligibleFromSql} WHERE ${baseClauses.join(" AND ")}`)
-        .bind(...baseBindings).first<{ total: number; received: number | null }>(),
-      db.prepare(`SELECT COUNT(*) AS count ${eligibleFromSql}
-        WHERE ${listClauses.join(" AND ")}`).bind(...listBindings).first<{ count: number }>(),
-      db.prepare(`SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
+        ${eligibleFromSql} WHERE ${baseClauses.join(" AND ")}`,
+        )
+        .bind(...baseBindings)
+        .first<{ total: number; received: number | null }>(),
+      db
+        .prepare(
+          `SELECT COUNT(*) AS count ${eligibleFromSql}
+        WHERE ${listClauses.join(" AND ")}`,
+        )
+        .bind(...listBindings)
+        .first<{ count: number }>(),
+      db
+        .prepare(
+          `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,COALESCE(r.approval_status,'PENDING') AS approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           dr.received_at,receiver.display_name AS received_by_name
         ${eligibleFromSql}
         WHERE ${listClauses.join(" AND ")}
         ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room,CAST(s.class_number AS INTEGER),s.first_name,s.last_name
-        LIMIT ? OFFSET ?`).bind(...listBindings, PAGE_SIZE, (page - 1) * PAGE_SIZE).all(),
-      db.prepare(`SELECT DISTINCT s.grade_level,s.room
+        LIMIT ? OFFSET ?`,
+        )
+        .bind(...listBindings, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+        .all(),
+      db
+        .prepare(
+          `SELECT DISTINCT s.grade_level,s.room
         FROM students s JOIN student_survey_responses r ON r.student_id=s.id
         WHERE ${eligibleClauses.join(" AND ")}
-        ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`).all(),
+        ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`,
+        )
+        .all(),
     ]);
     const total = Number(summary?.total ?? 0);
     const received = Number(summary?.received ?? 0);
@@ -208,12 +250,17 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const input = actionSchema.parse(await request.json());
-    const admin = await requireAdminApi(request, input.action === "cancel" ? "superadmin" : undefined);
+    const admin = await requireAdminApi(
+      request,
+      input.action === "cancel" ? "superadmin" : undefined,
+    );
     const db = await ensureDatabase();
     const stamp = now();
 
     if (input.action === "withdraw") {
-      const student = await db.prepare(`SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,
+      const student = await db
+        .prepare(
+          `SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,
           r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END AS document_received,
           CASE WHEN h.status='ACTIVE' THEN 1 ELSE 0 END AS active_handover
@@ -221,101 +268,240 @@ export async function POST(request: Request) {
         JOIN student_survey_responses r ON r.student_id=s.id
         LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=?
         LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
-        WHERE s.id=? AND s.is_active=1 LIMIT 1`).bind(DOCUMENT_TYPE, input.studentId).first<{
-          id:string;student_code:string;prefix:string;first_name:string;last_name:string;
-          decision:string;public_locked:number;approval_status:string|null;
-          document_received:number;active_handover:number;
+        WHERE s.id=? AND s.is_active=1 LIMIT 1`,
+        )
+        .bind(DOCUMENT_TYPE, input.studentId)
+        .first<{
+          id: string;
+          student_code: string;
+          prefix: string;
+          first_name: string;
+          last_name: string;
+          decision: string;
+          public_locked: number;
+          approval_status: string | null;
+          document_received: number;
+          active_handover: number;
         }>();
       if (!student) return json({ error: "ไม่พบข้อมูลนักเรียน" }, 404);
       if (student.active_handover === 1)
-        return json({ error: "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ" }, 409);
-      if (student.public_locked !== 1 || student.decision !== "ACCEPT" || student.approval_status === "REJECTED")
-        return json({ error: "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad หรือเปลี่ยนสถานะไปแล้ว" }, 409);
+        return json(
+          {
+            error:
+              "นักเรียนรับเครื่องแล้ว กรุณาบันทึกคืน iPad ก่อนเปลี่ยนเป็นไม่รับ",
+          },
+          409,
+        );
+      if (
+        student.public_locked !== 1 ||
+        student.decision !== "ACCEPT" ||
+        student.approval_status === "REJECTED"
+      )
+        return json(
+          {
+            error:
+              "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad หรือเปลี่ยนสถานะไปแล้ว",
+          },
+          409,
+        );
 
-      const note = student.document_received === 1
-        ? "เปลี่ยนใจไม่รับ iPad หลังส่งเอกสารแล้ว"
-        : "เปลี่ยนใจไม่รับ iPad โดยยังไม่ได้ส่งเอกสาร";
-      const updated = await db.prepare(`UPDATE student_survey_responses SET
+      const note =
+        student.document_received === 1
+          ? "เปลี่ยนใจไม่รับ iPad หลังส่งเอกสารแล้ว"
+          : "เปลี่ยนใจไม่รับ iPad โดยยังไม่ได้ส่งเอกสาร";
+      const updated = await db
+        .prepare(
+          `UPDATE student_survey_responses SET
           decision='DECLINE',approval_status='REJECTED',approved_at=?,approved_by=?,approval_note=?,
           updated_at=?,updated_by_admin_id=?
         WHERE student_id=? AND public_locked=1 AND decision='ACCEPT'
-          AND COALESCE(approval_status,'PENDING')!='REJECTED'`)
-        .bind(stamp, admin.id, note, stamp, admin.id, student.id).run();
+          AND COALESCE(approval_status,'PENDING')!='REJECTED'`,
+        )
+        .bind(stamp, admin.id, note, stamp, admin.id, student.id)
+        .run();
       if (Number(updated.meta.changes ?? 0) !== 1)
-        return json({ error: "สถานะถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว กรุณาค้นหาใหม่" }, 409);
-      await db.prepare(`INSERT INTO student_document_receipt_events
+        return json(
+          { error: "สถานะถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว กรุณาค้นหาใหม่" },
+          409,
+        );
+      await db
+        .prepare(
+          `INSERT INTO student_document_receipt_events
         (id,student_id,document_type,action,note,processed_by,created_at)
-        VALUES (?,?,?,'WITHDRAW',?,?,?)`).bind(id(), student.id, DOCUMENT_TYPE, note, admin.id, stamp).run();
-      await audit(db, admin.id, "STUDENT_WITHDRAW_AFTER_DOCUMENT", "student_survey_response", student.id,
-        `เปลี่ยนเป็นไม่รับ iPad (${student.document_received === 1 ? "ส่งเอกสารแล้ว" : "ยังไม่ส่งเอกสาร"}) รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`);
-      return json({ success: true, studentId: student.id, decision: "DECLINE", approvalStatus: "REJECTED" });
+        VALUES (?,?,?,'WITHDRAW',?,?,?)`,
+        )
+        .bind(id(), student.id, DOCUMENT_TYPE, note, admin.id, stamp)
+        .run();
+      await audit(
+        db,
+        admin.id,
+        "STUDENT_WITHDRAW_AFTER_DOCUMENT",
+        "student_survey_response",
+        student.id,
+        `เปลี่ยนเป็นไม่รับ iPad (${student.document_received === 1 ? "ส่งเอกสารแล้ว" : "ยังไม่ส่งเอกสาร"}) รหัสนักเรียน ${student.student_code} ${student.prefix}${student.first_name} ${student.last_name}`,
+      );
+      return json({
+        success: true,
+        studentId: student.id,
+        decision: "DECLINE",
+        approvalStatus: "REJECTED",
+      });
     }
 
     if (input.action === "cancel") {
       const studentIds = [...new Set(input.studentIds)];
       const placeholders = studentIds.map(() => "?").join(",");
-      const activeHandovers = await db.prepare(`SELECT student_id FROM student_device_handovers
-        WHERE status='ACTIVE' AND student_id IN (${placeholders})`).bind(...studentIds).all();
+      const activeHandovers = await db
+        .prepare(
+          `SELECT student_id FROM student_device_handovers
+        WHERE status='ACTIVE' AND student_id IN (${placeholders})`,
+        )
+        .bind(...studentIds)
+        .all();
       if ((activeHandovers.results?.length ?? 0) > 0)
-        return json({ error: `ยกเลิกไม่ได้ มีนักเรียนรับเครื่องแล้ว ${(activeHandovers.results?.length ?? 0).toLocaleString("th-TH")} ราย กรุณารับคืนเครื่องก่อน` }, 409);
-      const current = await db.prepare(`SELECT dr.student_id,s.student_code
+        return json(
+          {
+            error: `ยกเลิกไม่ได้ มีนักเรียนรับเครื่องแล้ว ${(activeHandovers.results?.length ?? 0).toLocaleString("th-TH")} ราย กรุณารับคืนเครื่องก่อน`,
+          },
+          409,
+        );
+      const current = await db
+        .prepare(
+          `SELECT dr.student_id,s.student_code
         FROM student_document_receipts dr JOIN students s ON s.id=dr.student_id
-        WHERE dr.student_id IN (${placeholders}) AND dr.document_type=? AND dr.status='RECEIVED'`)
-        .bind(...studentIds, DOCUMENT_TYPE).all<{ student_id: string; student_code: string }>();
+        WHERE dr.student_id IN (${placeholders}) AND dr.document_type=? AND dr.status='RECEIVED'`,
+        )
+        .bind(...studentIds, DOCUMENT_TYPE)
+        .all<{ student_id: string; student_code: string }>();
       if ((current.results?.length ?? 0) !== studentIds.length)
-        return json({ error: "มีบางรายการถูกยกเลิกไปแล้ว กรุณาโหลดข้อมูลใหม่แล้วเลือกอีกครั้ง" }, 409);
-      const updates = await db.batch((current.results ?? []).map((student) => db.prepare(`UPDATE student_document_receipts
-        SET status='CANCELLED',updated_at=? WHERE student_id=? AND document_type=? AND status='RECEIVED'`)
-        .bind(stamp, student.student_id, DOCUMENT_TYPE)));
-      const cancelled = (current.results ?? []).filter((_, index) => Number(updates[index]?.meta.changes ?? 0) > 0);
-      if (!cancelled.length) return json({ error: "สถานะเอกสารถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว" }, 409);
-      await db.batch(cancelled.map((student) => db.prepare(`INSERT INTO student_document_receipt_events
-        (id,student_id,document_type,action,note,processed_by,created_at) VALUES (?,?,?,'CANCEL',?,?,?)`)
-        .bind(id(), student.student_id, DOCUMENT_TYPE, input.reason, admin.id, stamp)));
-      await audit(db, admin.id, "CANCEL_STUDENT_DOCUMENT", "student_document_receipt",
+        return json(
+          {
+            error:
+              "มีบางรายการถูกยกเลิกไปแล้ว กรุณาโหลดข้อมูลใหม่แล้วเลือกอีกครั้ง",
+          },
+          409,
+        );
+      const updates = await db.batch(
+        (current.results ?? []).map((student) =>
+          db
+            .prepare(
+              `UPDATE student_document_receipts
+        SET status='CANCELLED',updated_at=? WHERE student_id=? AND document_type=? AND status='RECEIVED'`,
+            )
+            .bind(stamp, student.student_id, DOCUMENT_TYPE),
+        ),
+      );
+      const cancelled = (current.results ?? []).filter(
+        (_, index) => Number(updates[index]?.meta.changes ?? 0) > 0,
+      );
+      if (!cancelled.length)
+        return json(
+          { error: "สถานะเอกสารถูกเปลี่ยนโดยผู้ดูแลคนอื่นแล้ว" },
+          409,
+        );
+      await db.batch(
+        cancelled.map((student) =>
+          db
+            .prepare(
+              `INSERT INTO student_document_receipt_events
+        (id,student_id,document_type,action,note,processed_by,created_at) VALUES (?,?,?,'CANCEL',?,?,?)`,
+            )
+            .bind(
+              id(),
+              student.student_id,
+              DOCUMENT_TYPE,
+              input.reason,
+              admin.id,
+              stamp,
+            ),
+        ),
+      );
+      await audit(
+        db,
+        admin.id,
+        "CANCEL_STUDENT_DOCUMENT",
+        "student_document_receipt",
         cancelled.length === 1 ? cancelled[0].student_id : null,
         cancelled.length === 1
           ? `ยกเลิกการรับเอกสาร AWAT-03 รหัสนักเรียน ${cancelled[0].student_code}: ${input.reason}`
-          : `ยกเลิกการรับเอกสาร AWAT-03 จำนวน ${cancelled.length} ราย: ${input.reason}`);
+          : `ยกเลิกการรับเอกสาร AWAT-03 จำนวน ${cancelled.length} ราย: ${input.reason}`,
+      );
       return json({ success: true, cancelled: cancelled.length });
     }
 
     const studentIds = [...new Set(input.studentIds)];
     const placeholders = studentIds.map(() => "?").join(",");
-    const eligible = await db.prepare(`SELECT s.id,s.student_code,
+    const eligible = await db
+      .prepare(
+        `SELECT s.id,s.student_code,
         CASE WHEN dr.status='RECEIVED' THEN 1 ELSE 0 END AS already_received
       ${eligibleFromSql}
-      WHERE ${eligibleClauses.join(" AND ")} AND s.id IN (${placeholders})`)
-      .bind(...studentIds).all<{ id: string; student_code: string; already_received: number }>();
+      WHERE ${eligibleClauses.join(" AND ")} AND s.id IN (${placeholders})`,
+      )
+      .bind(...studentIds)
+      .all<{ id: string; student_code: string; already_received: number }>();
     if ((eligible.results?.length ?? 0) !== studentIds.length)
-      return json({ error: "มีนักเรียนบางรายการที่ไม่อยู่ในกลุ่มลงทะเบียนรับ iPad กรุณาโหลดข้อมูลใหม่" }, 400);
+      return json(
+        {
+          error:
+            "มีนักเรียนบางรายการที่ไม่อยู่ในกลุ่มลงทะเบียนรับ iPad กรุณาโหลดข้อมูลใหม่",
+        },
+        400,
+      );
 
-    const pending = (eligible.results ?? []).filter((student) => student.already_received !== 1);
+    const pending = (eligible.results ?? []).filter(
+      (student) => student.already_received !== 1,
+    );
     let receivedStudents: typeof pending = [];
     if (pending.length) {
-      const receiptResults = await db.batch(pending.map((student) =>
-        db.prepare(`INSERT INTO student_document_receipts
+      const receiptResults = await db.batch(
+        pending.map((student) =>
+          db
+            .prepare(
+              `INSERT INTO student_document_receipts
           (student_id,document_type,status,received_at,received_by,updated_at)
           VALUES (?,?,'RECEIVED',?,?,?)
           ON CONFLICT(student_id,document_type) DO UPDATE SET
             status='RECEIVED',received_at=excluded.received_at,
             received_by=excluded.received_by,updated_at=excluded.updated_at
-          WHERE student_document_receipts.status!='RECEIVED'`)
-          .bind(student.id, DOCUMENT_TYPE, stamp, admin.id, stamp),
-      ));
-      receivedStudents = pending.filter((_, index) => Number(receiptResults[index]?.meta.changes ?? 0) > 0);
-      if (receivedStudents.length) await db.batch(receivedStudents.map((student) =>
-        db.prepare(`INSERT INTO student_document_receipt_events
+          WHERE student_document_receipts.status!='RECEIVED'`,
+            )
+            .bind(student.id, DOCUMENT_TYPE, stamp, admin.id, stamp),
+        ),
+      );
+      receivedStudents = pending.filter(
+        (_, index) => Number(receiptResults[index]?.meta.changes ?? 0) > 0,
+      );
+      if (receivedStudents.length)
+        await db.batch(
+          receivedStudents.map((student) =>
+            db
+              .prepare(
+                `INSERT INTO student_document_receipt_events
           (id,student_id,document_type,action,note,processed_by,created_at)
-          VALUES (?,?,?,'RECEIVE',?,?,?)`).bind(
-            id(), student.id, DOCUMENT_TYPE, input.note || null, admin.id, stamp,
+          VALUES (?,?,?,'RECEIVE',?,?,?)`,
+              )
+              .bind(
+                id(),
+                student.id,
+                DOCUMENT_TYPE,
+                input.note || null,
+                admin.id,
+                stamp,
+              ),
           ),
-      ));
-      if (receivedStudents.length) await audit(db, admin.id, "RECEIVE_STUDENT_DOCUMENT", "student_document_receipt",
-        receivedStudents.length === 1 ? receivedStudents[0].id : null,
-        receivedStudents.length === 1
-          ? `รับเอกสาร AWAT-03 รหัสนักเรียน ${receivedStudents[0].student_code}`
-          : `รับเอกสาร AWAT-03 จำนวน ${receivedStudents.length} ราย`);
+        );
+      if (receivedStudents.length)
+        await audit(
+          db,
+          admin.id,
+          "RECEIVE_STUDENT_DOCUMENT",
+          "student_document_receipt",
+          receivedStudents.length === 1 ? receivedStudents[0].id : null,
+          receivedStudents.length === 1
+            ? `รับเอกสาร AWAT-03 รหัสนักเรียน ${receivedStudents[0].student_code}`
+            : `รับเอกสาร AWAT-03 จำนวน ${receivedStudents.length} ราย`,
+        );
     }
     return json({
       success: true,

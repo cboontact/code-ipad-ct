@@ -1,11 +1,18 @@
 import { z } from "zod";
 import { ensureDatabase, getSettings } from "@/lib/db/runtime";
 import { apiError, json } from "@/lib/http";
-import { assertSameOrigin, clientIp, enforcePublicRateLimit } from "@/lib/security/request";
+import {
+  assertSameOrigin,
+  clientIp,
+  enforcePublicRateLimit,
+} from "@/lib/security/request";
 import { signToken } from "@/lib/security/crypto";
 import { registrationWindow } from "@/lib/registration-window";
 import { studentGradeNumber } from "@/lib/data/student-options";
-import { createStudentPrintCookie, clearStudentPrintCookie } from "@/lib/security/student-print-session";
+import {
+  createStudentPrintCookie,
+  clearStudentPrintCookie,
+} from "@/lib/security/student-print-session";
 
 const schema = z.object({
   studentCode: z.string().trim().min(1).max(30),
@@ -22,15 +29,49 @@ export async function POST(request: Request) {
       900,
     );
     const settings = await getSettings(db);
-    const student = await db.prepare(`SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.class_number,s.phone,s.school_email,s.ndlp_email,
+    const student = await db
+      .prepare(
+        `SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.class_number,s.phone,s.school_email,s.ndlp_email,
       r.id AS response_id,r.decision,r.public_locked,r.approval_status,r.approved_at,r.approval_note,r.submitted_at,
-      t.student_id AS training_required,t.status AS training_status
+      t.status AS training_status,x.student_id AS training_exempt,h.status AS handover_status
       FROM students s LEFT JOIN student_survey_responses r ON r.student_id=s.id
       LEFT JOIN guardian_training_assignments t ON t.student_id=s.id
-      WHERE s.student_code=? AND s.is_active=1`)
+      LEFT JOIN guardian_training_exemptions x ON x.student_id=s.id
+      LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
+      WHERE s.student_code=? AND s.is_active=1`,
+      )
       .bind(input.studentCode)
-      .first<{id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;class_number:string|null;phone:string|null;school_email:string|null;ndlp_email:string|null;response_id:string|null;decision:string|null;public_locked:number|null;approval_status:string|null;approved_at:string|null;approval_note:string|null;submitted_at:string|null;training_required:string|null;training_status:string|null}>();
-    if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้ กรุณาตรวจสอบอีกครั้งหรือติดต่อผู้ดูแลระบบ" }, 404);
+      .first<{
+        id: string;
+        student_code: string;
+        prefix: string;
+        first_name: string;
+        last_name: string;
+        grade_level: string;
+        room: string;
+        class_number: string | null;
+        phone: string | null;
+        school_email: string | null;
+        ndlp_email: string | null;
+        response_id: string | null;
+        decision: string | null;
+        public_locked: number | null;
+        approval_status: string | null;
+        approved_at: string | null;
+        approval_note: string | null;
+        submitted_at: string | null;
+        training_status: string | null;
+        training_exempt: string | null;
+        handover_status: string | null;
+      }>();
+    if (!student)
+      return json(
+        {
+          error:
+            "ไม่พบเลขประจำตัวนักเรียนนี้ กรุณาตรวจสอบอีกครั้งหรือติดต่อผู้ดูแลระบบ",
+        },
+        404,
+      );
     const publicStudent = {
       id: student.id,
       studentCode: student.student_code,
@@ -43,33 +84,55 @@ export async function POST(request: Request) {
       ndlpEmail: student.ndlp_email ?? "",
     };
     if (student.public_locked) {
-      const trainingRequired = Boolean(student.training_required);
-      const canPrint = student.decision === "ACCEPT" && student.approval_status !== "REJECTED"
-        && (!trainingRequired || student.training_status === "APPROVED");
+      const trainingRequired =
+        !student.training_exempt && student.handover_status !== "ACTIVE";
+      const canPrint =
+        student.decision === "ACCEPT" &&
+        student.approval_status !== "REJECTED" &&
+        (!trainingRequired || student.training_status === "APPROVED");
       const printCookie = canPrint
         ? await createStudentPrintCookie(student.id, request)
         : clearStudentPrintCookie(request);
-      return json({
-        alreadyRegistered: true,
-        student: publicStudent,
-        decision: student.decision,
-        approvalStatus: student.approval_status ?? (student.decision === "DECLINE" ? "NOT_REQUIRED" : "PENDING"),
-        approvedAt: student.approved_at,
-        approvalNote: student.approval_note,
-        submittedAt: student.submitted_at,
-        canPrint,
-        trainingRequired,
-        trainingStatus: student.training_status,
-      }, 200, { "Set-Cookie": printCookie });
+      return json(
+        {
+          alreadyRegistered: true,
+          student: publicStudent,
+          decision: student.decision,
+          approvalStatus:
+            student.approval_status ??
+            (student.decision === "DECLINE" ? "NOT_REQUIRED" : "PENDING"),
+          approvedAt: student.approved_at,
+          approvalNote: student.approval_note,
+          submittedAt: student.submitted_at,
+          canPrint,
+          trainingRequired,
+          trainingStatus: student.training_status,
+          trainingExempt: Boolean(student.training_exempt),
+        },
+        200,
+        { "Set-Cookie": printCookie },
+      );
     }
-    const audience = ["4", "5", "6"].includes(studentGradeNumber(student.grade_level)) ? "student_upper" : "student_lower";
-    if (!registrationWindow(settings, audience).isOpen) throw new Error("STUDENT_REGISTRATION_CLOSED");
-    const verificationToken = await signToken({ studentId: student.id, purpose: "student-survey" }, 2 * 60 * 60);
-    return json({
-      verificationToken,
-      reopened: Boolean(student.response_id),
-      student: publicStudent,
-    }, 200, { "Set-Cookie": clearStudentPrintCookie(request) });
+    const audience = ["4", "5", "6"].includes(
+      studentGradeNumber(student.grade_level),
+    )
+      ? "student_upper"
+      : "student_lower";
+    if (!registrationWindow(settings, audience).isOpen)
+      throw new Error("STUDENT_REGISTRATION_CLOSED");
+    const verificationToken = await signToken(
+      { studentId: student.id, purpose: "student-survey" },
+      2 * 60 * 60,
+    );
+    return json(
+      {
+        verificationToken,
+        reopened: Boolean(student.response_id),
+        student: publicStudent,
+      },
+      200,
+      { "Set-Cookie": clearStudentPrintCookie(request) },
+    );
   } catch (error) {
     return apiError(error);
   }
