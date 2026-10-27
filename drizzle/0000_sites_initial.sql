@@ -790,7 +790,7 @@ INSERT OR IGNORE INTO system_settings (key,value,updated_at) VALUES
 INSERT OR IGNORE INTO guardian_training_questions
   (id,statement,correct_answer,explanation,sort_order,is_active,created_at,updated_at)
 VALUES
-  ('gtq-01','iPad ในโครงการเป็นอุปกรณ์ยืมเรียน และนักเรียนต้องส่งคืนโรงเรียนเมื่อเรียนจบชั้น ม.6',1,'อุปกรณ์เป็นทรัพย์สินสำหรับยืมเรียนตลอดโครงการและต้องส่งคืนเมื่อจบชั้น ม.6',1,1,datetime('now'),datetime('now')),
+  ('gtq-01','iPad ในโครงการเป็นอุปกรณ์ยืมเรียน และนักเรียนต้องส่งคืนโรงเรียนเมื่อเรียนจบชั้น ม.3 หรือ ม.6',1,'อุปกรณ์เป็นทรัพย์สินสำหรับยืมเรียนตลอดโครงการและต้องส่งคืนเมื่อจบชั้น ม.3 หรือ ม.6',1,1,datetime('now'),datetime('now')),
   ('gtq-02','ชุดอุปกรณ์ประกอบด้วย iPad ชิป A16 ความจุ 128GB แบบ Wi-Fi + Cellular พร้อมสายและอะแดปเตอร์ ปากกา และเคสคีย์บอร์ด',1,'เอกสารระบุ iPad 11 นิ้ว ชิป A16 ความจุ 128GB แบบ Wi-Fi + Cellular พร้อมอุปกรณ์ที่กำหนด',2,1,datetime('now'),datetime('now')),
   ('gtq-03','แพ็กเกจอินเทอร์เน็ตมีข้อมูล 30GB ต่อเดือน และเมื่อใช้ครบจะลดความเร็วเหลือไม่น้อยกว่า 384 Kbps',1,'แพ็กเกจให้ข้อมูล 30GB ต่อเดือน หลังใช้ครบลดความเร็ว และไม่รวมโทรศัพท์ SMS หรือ MMS',3,1,datetime('now'),datetime('now')),
   ('gtq-04','นักเรียนเป็นผู้ค้ำประกันอุปกรณ์และสามารถลงนามในแบบฟอร์ม AWAT-03 แทนผู้ปกครองได้',0,'ผู้ปกครองเป็นผู้ค้ำประกันและต้องลงลายมือชื่อในแบบฟอร์ม AWAT-03',4,1,datetime('now'),datetime('now')),
@@ -841,3 +841,12 @@ ALTER TABLE guardian_training_assignments ADD COLUMN consent_version TEXT;
 --> statement-breakpoint
 
 ALTER TABLE guardian_training_assignments ADD COLUMN consent_user_agent TEXT;
+
+--> statement-breakpoint
+
+-- Source: migrations/0026_update_training_return_grade.sql
+UPDATE guardian_training_questions
+SET statement = 'iPad ในโครงการเป็นอุปกรณ์ยืมเรียน และนักเรียนต้องส่งคืนโรงเรียนเมื่อเรียนจบชั้น ม.3 หรือ ม.6',
+    explanation = 'อุปกรณ์เป็นทรัพย์สินสำหรับยืมเรียนตลอดโครงการและต้องส่งคืนเมื่อจบชั้น ม.3 หรือ ม.6',
+    updated_at = datetime('now')
+WHERE id = 'gtq-01';
