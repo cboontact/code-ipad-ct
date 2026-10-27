@@ -50,10 +50,7 @@ export async function getPrintableStudent(
     LEFT JOIN class_advisors ca2 ON ca2.grade_level=s.grade_level AND ca2.room=s.room AND ca2.advisor_order=2
     LEFT JOIN teachers advisor2 ON advisor2.id=ca2.teacher_id
     WHERE s.id=? AND r.decision='ACCEPT' AND r.public_locked=1
-      AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
-      AND (EXISTS (SELECT 1 FROM guardian_training_exemptions gte WHERE gte.student_id=s.id)
-        OR EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status='APPROVED')
-        OR EXISTS (SELECT 1 FROM student_device_handovers gth WHERE gth.student_id=s.id AND gth.status='ACTIVE'))`,
+      AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`,
     )
     .bind(studentId)
     .first<{
@@ -113,7 +110,7 @@ export async function getAcceptedStudentIds(
     "s.is_active=1",
     "r.decision='ACCEPT'",
     "r.public_locked=1",
-    "(EXISTS (SELECT 1 FROM guardian_training_exemptions gte WHERE gte.student_id=s.id) OR EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status='APPROVED') OR EXISTS (SELECT 1 FROM student_device_handovers gth WHERE gth.student_id=s.id AND gth.status='ACTIVE'))",
+    "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
   ];
   const values: string[] = [];
   const grade = filters.grade?.trim();

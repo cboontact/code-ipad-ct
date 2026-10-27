@@ -90,8 +90,7 @@ export async function POST(request: Request) {
         student.handover_status !== "ACTIVE";
       const canPrint =
         student.decision === "ACCEPT" &&
-        student.approval_status !== "REJECTED" &&
-        (!trainingRequired || student.training_status === "APPROVED");
+        student.approval_status !== "REJECTED";
       const printCookie = canPrint
         ? await createStudentPrintCookie(student.id, request)
         : clearStudentPrintCookie(request);

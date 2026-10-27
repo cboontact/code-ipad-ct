@@ -135,8 +135,7 @@ export async function POST(request: Request) {
           .first<{ status: string | null; exemption_id: string | null }>()
       : null;
     const trainingRequired = input.decision === "ACCEPT" && !training?.exemption_id;
-    const canPrint = input.decision === "ACCEPT" &&
-      (!trainingRequired || training?.status === "APPROVED");
+    const canPrint = input.decision === "ACCEPT";
     return json(
       {
         success: true,
