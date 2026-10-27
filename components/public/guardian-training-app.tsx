@@ -537,40 +537,42 @@ export function GuardianTrainingApp() {
               <fieldset key={question.id}>
                 <legend>
                   <span>{index + 1}</span>
-                  {question.statement}
+                  <strong>{question.statement}</strong>
                 </legend>
-                <label
-                  className={answers[question.id] === true ? "selected" : ""}
-                >
-                  <input
-                    type="radio"
-                    name={question.id}
-                    checked={answers[question.id] === true}
-                    onChange={() =>
-                      setAnswers((current) => ({
-                        ...current,
-                        [question.id]: true,
-                      }))
-                    }
-                  />
-                  ถูก
-                </label>
-                <label
-                  className={answers[question.id] === false ? "selected" : ""}
-                >
-                  <input
-                    type="radio"
-                    name={question.id}
-                    checked={answers[question.id] === false}
-                    onChange={() =>
-                      setAnswers((current) => ({
-                        ...current,
-                        [question.id]: false,
-                      }))
-                    }
-                  />
-                  ผิด
-                </label>
+                <div className="training-question-options">
+                  <label
+                    className={answers[question.id] === true ? "selected" : ""}
+                  >
+                    <input
+                      type="radio"
+                      name={question.id}
+                      checked={answers[question.id] === true}
+                      onChange={() =>
+                        setAnswers((current) => ({
+                          ...current,
+                          [question.id]: true,
+                        }))
+                      }
+                    />
+                    ถูก
+                  </label>
+                  <label
+                    className={answers[question.id] === false ? "selected" : ""}
+                  >
+                    <input
+                      type="radio"
+                      name={question.id}
+                      checked={answers[question.id] === false}
+                      onChange={() =>
+                        setAnswers((current) => ({
+                          ...current,
+                          [question.id]: false,
+                        }))
+                      }
+                    />
+                    ผิด
+                  </label>
+                </div>
               </fieldset>
             ))}
           </div>
