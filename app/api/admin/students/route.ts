@@ -83,6 +83,9 @@ export async function GET(request: Request) {
       s.birth_date,s.phone,s.school_email,s.ndlp_email,s.is_active,s.sort_order,
       CASE WHEN r.id IS NULL OR r.public_locked=0 THEN 'PENDING' ELSE r.decision END AS survey_status,
       CASE WHEN r.public_locked=1 THEN r.submitted_at ELSE NULL END AS submitted_at,
+      CASE WHEN r.public_locked=1 AND r.decision='DECLINE'
+        AND r.pii_ciphertext IS NOT NULL AND r.pii_iv IS NOT NULL
+        AND r.privacy_acknowledged_at IS NOT NULL THEN 1 ELSE 0 END AS can_restore_accept,
       r.public_locked,r.approval_status,r.approved_at,r.approval_note,d.serial_number,
       advisor1.prefix || advisor1.first_name || ' ' || advisor1.last_name ||
         CASE WHEN advisor2.id IS NOT NULL THEN ' / ' || advisor2.prefix || advisor2.first_name || ' ' || advisor2.last_name ELSE '' END AS advisor_name

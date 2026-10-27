@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
   faBan,
+  faArrowRotateLeft,
   faChevronLeft,
   faChevronRight,
   faCircleCheck,
@@ -146,6 +147,23 @@ export function StudentAdmin({ view = "manage", initialGrade = "", initialRoom =
       setBusy(false);
     }
   }
+  async function restoreAcceptIpad(row:Row) {
+    const studentId=s(row.id), studentName=`${s(row.prefix)}${s(row.first_name)} ${s(row.last_name)}`.trim();
+    if (!window.confirm(`ยืนยันเปลี่ยน ${studentName} เป็น “รับ iPad” หรือไม่\n\nระบบจะใช้ข้อมูลการลงทะเบียนเดิม นักเรียนไม่ต้องลงทะเบียนใหม่ และส่งรายการกลับไปรออนุมัติ`)) return;
+    setBusy(true);
+    try {
+      const response=await fetch("/api/admin/document-checkin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"restore-accept",studentId})});
+      const body=await readJson<{error?:string}>(response);
+      if (!response.ok) throw new Error(body.error);
+      toast.success(`เปลี่ยน ${studentName} เป็นรับ iPad แล้ว โดยใช้ข้อมูลเดิม`);
+      setRows(current=>current.map(item=>s(item.id)===studentId?{...item,survey_status:"ACCEPT",approval_status:"PENDING",approved_at:null,approval_note:"เปลี่ยนใจกลับมารับ iPad โดยใช้ข้อมูลลงทะเบียนเดิม",can_restore_accept:0}:item));
+      void load({silent:true});
+    } catch(error) {
+      toast.error(error instanceof Error?error.message:"เปลี่ยนสถานะไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function exportResults(type:"summary"|"full",format:"csv"|"xlsx") {
     setBusy(true);
     try {
@@ -254,6 +272,7 @@ export function StudentAdmin({ view = "manage", initialGrade = "", initialRoom =
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="APPROVED"&&<button className="icon-button approval-approve-button" title="อนุมัติการรับ iPad" aria-label="อนุมัติการรับ iPad" disabled={busy} onClick={()=>void act("approve",s(row.id))}><FontAwesomeIcon icon={faCircleCheck}/></button>}
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="REJECTED"&&<button className="icon-button approval-reject-button" title="ไม่อนุมัติการรับ iPad" aria-label="ไม่อนุมัติการรับ iPad" disabled={busy} onClick={()=>{if(confirm(`ยืนยันไม่อนุมัติการรับ iPad ของ ${s(row.first_name)} ${s(row.last_name)} หรือไม่`))void act("reject",s(row.id));}}><FontAwesomeIcon icon={faBan}/></button>}
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="REJECTED"&&<button className="icon-button danger-icon-button" title="เปลี่ยนใจไม่รับ iPad" aria-label="เปลี่ยนใจไม่รับ iPad" disabled={busy} onClick={()=>void withdrawIpad(row)}><FontAwesomeIcon icon={faUserXmark}/></button>}
+        {resultsView&&s(row.survey_status)==="DECLINE"&&Number(row.can_restore_accept)===1&&<button className="icon-button approval-approve-button" title="เปลี่ยนเป็นรับ iPad โดยใช้ข้อมูลเดิม" aria-label="เปลี่ยนเป็นรับ iPad โดยใช้ข้อมูลเดิม" disabled={busy} onClick={()=>void restoreAcceptIpad(row)}><FontAwesomeIcon icon={faArrowRotateLeft}/></button>}
         <button className="icon-button" title={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} aria-label={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} onClick={()=>void openEditor(row)}><FontAwesomeIcon icon={resultsView?faUser:faPen}/></button>
         {s(row.survey_status)==="ACCEPT"&&<button className="icon-button" title="พิมพ์ AWAT-03" aria-label="พิมพ์ AWAT-03" onClick={()=>setPrintId(s(row.id))}><FontAwesomeIcon icon={faPrint}/></button>}
         {s(row.survey_status)!=="PENDING"&&<button className="icon-button" title="เปิดให้ตอบใหม่" aria-label="เปิดให้ตอบใหม่" onClick={()=>void act("reopen",s(row.id))}><FontAwesomeIcon icon={faRotateRight}/></button>}
