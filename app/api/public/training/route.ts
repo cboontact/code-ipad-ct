@@ -50,10 +50,6 @@ const quizSchema = z.object({
   token: z.string().min(20),
   answers: z.record(z.string(), z.boolean()),
 });
-const restartSchema = z.object({
-  action: z.literal("restart"),
-  token: z.string().min(20),
-});
 const identitySchema = z.object({
   action: z.literal("submitIdentity"),
   token: z.string().min(20),
@@ -65,7 +61,6 @@ const actionSchema = z.discriminatedUnion("action", [
   statusSchema,
   progressSchema,
   quizSchema,
-  restartSchema,
   identitySchema,
 ]);
 
@@ -313,25 +308,6 @@ export async function POST(request: Request) {
       return json(await responseFor(db, updated!, input.token));
     }
 
-    if (input.action === "restart") {
-      if (row.status !== "QUIZ_FAILED")
-        return json({ error: "รายการนี้ยังไม่อยู่ในสถานะอบรมใหม่" }, 409);
-      await db.batch([
-        db
-          .prepare(
-            `UPDATE guardian_training_assignments SET status='IN_PROGRESS',cycle=cycle+1,watched_seconds=0,video_duration=0,last_progress_at=NULL,quiz_score=NULL,updated_at=? WHERE student_id=?`,
-          )
-          .bind(stamp, row.student_id),
-        db
-          .prepare(
-            `INSERT INTO guardian_training_events (id,student_id,action,description,created_at) VALUES (?,?, 'RESTART','เริ่มรับชมการอบรมรอบใหม่',?)`,
-          )
-          .bind(id(), row.student_id, stamp),
-      ]);
-      const updated = await trainingRow(db, row.student_id);
-      return json(await responseFor(db, updated!, input.token));
-    }
-
     if (input.action === "quiz") {
       if (!trainingCanTakeQuiz(row.status))
         return json(
@@ -356,13 +332,18 @@ export async function POST(request: Request) {
       )
         return json({ error: "กรุณาตอบคำถามให้ครบทั้ง 10 ข้อ" }, 400);
       let score = 0;
+      const incorrectQuestionIds: string[] = [];
       const answerStatements = questionRows.map((question) => {
         const answer = input.answers[question.id];
         const correct = Number(answer) === Number(question.correct_answer);
         if (correct) score += 1;
+        else incorrectQuestionIds.push(question.id);
         return db
           .prepare(
-            `INSERT INTO guardian_training_answers (id,student_id,cycle,question_id,answer,is_correct,created_at) VALUES (?,?,?,?,?,?,?)`,
+            `INSERT INTO guardian_training_answers (id,student_id,cycle,question_id,answer,is_correct,created_at)
+             VALUES (?,?,?,?,?,?,?)
+             ON CONFLICT(student_id,cycle,question_id) DO UPDATE SET
+               answer=excluded.answer,is_correct=excluded.is_correct,created_at=excluded.created_at`,
           )
           .bind(
             id(),
@@ -382,7 +363,7 @@ export async function POST(request: Request) {
             `UPDATE guardian_training_assignments SET status=?,quiz_score=?,quiz_attempts=quiz_attempts+1,updated_at=? WHERE student_id=?`,
           )
           .bind(
-            passed ? "QUIZ_PASSED" : "QUIZ_FAILED",
+            passed ? "QUIZ_PASSED" : "VIDEO_COMPLETED",
             score,
             stamp,
             row.student_id,
@@ -394,8 +375,10 @@ export async function POST(request: Request) {
           .bind(
             id(),
             row.student_id,
-            passed ? "QUIZ_PASSED" : "QUIZ_FAILED",
-            `ทำแบบทดสอบได้ ${score}/10 คะแนน`,
+            passed ? "QUIZ_PASSED" : "QUIZ_RETRY",
+            passed
+              ? `ทำแบบทดสอบได้ ${score}/10 คะแนน`
+              : `ทำแบบทดสอบได้ ${score}/10 คะแนน ให้แก้คำตอบที่ยังไม่ถูก`,
             stamp,
           ),
       ]);
@@ -404,6 +387,7 @@ export async function POST(request: Request) {
         ...(await responseFor(db, updated!, input.token)),
         passed,
         score,
+        incorrectQuestionIds,
       });
     }
 

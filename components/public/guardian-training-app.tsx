@@ -16,11 +16,9 @@ import {
   faGraduationCap,
   faIdCard,
   faPlay,
-  faRedo,
   faSearch,
   faShieldHalved,
   faSpinner,
-  faTriangleExclamation,
   faUpload,
   faUserGroup,
 } from "@fortawesome/free-solid-svg-icons";
@@ -57,6 +55,7 @@ type TrainingSession = {
   questions: Question[];
   passed?: boolean;
   score?: number;
+  incorrectQuestionIds?: string[];
 };
 type YTPlayer = {
   getCurrentTime: () => number;
@@ -88,7 +87,7 @@ const statusLabels: Record<string, string> = {
   ASSIGNED: "รอเริ่มอบรม",
   IN_PROGRESS: "กำลังรับชม",
   VIDEO_COMPLETED: "รอทำแบบทดสอบ",
-  QUIZ_FAILED: "ต้องอบรมใหม่",
+  QUIZ_FAILED: "แก้คำตอบแบบทดสอบ",
   QUIZ_PASSED: "ผ่านแบบทดสอบ",
   REVIEW_PENDING: "รอโรงเรียนตรวจสอบ",
   APPROVED: "อนุมัติแล้ว",
@@ -102,6 +101,7 @@ export function GuardianTrainingApp() {
     [busy, setBusy] = useState(false),
     [playing, setPlaying] = useState(false),
     [answers, setAnswers] = useState<Record<string, boolean>>({}),
+    [incorrectQuestionIds, setIncorrectQuestionIds] = useState<string[]>([]),
     [relationship, setRelationship] = useState(""),
     [consent, setConsent] = useState(false),
     [preview, setPreview] = useState("");
@@ -111,6 +111,24 @@ export function GuardianTrainingApp() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    const savedToken = window.localStorage.getItem("guardian-training-token");
+    if (!savedToken) return;
+    let cancelled = false;
+    void post({ action: "status", token: savedToken })
+      .then((data) => {
+        if (cancelled) return;
+        setSession(data);
+        setRelationship(data.relationship || "");
+      })
+      .catch(() => {
+        window.localStorage.removeItem("guardian-training-token");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function post(payload: Record<string, unknown>) {
     const response = await fetch("/api/public/training", {
@@ -136,6 +154,7 @@ export function GuardianTrainingApp() {
         guardianPhone,
       });
       setSession(data);
+      window.localStorage.setItem("guardian-training-token", data.token);
       setRelationship(data.relationship || "");
       toast.success("ยืนยันข้อมูลเรียบร้อยแล้ว");
     } catch (error) {
@@ -235,25 +254,18 @@ export function GuardianTrainingApp() {
         answers,
       });
       setSession(data);
-      setAnswers({});
-      if (data.passed) toast.success("ตอบถูกครบ 10 ข้อ ผ่านแบบทดสอบแล้ว");
-      else toast.error(`ตอบถูก ${data.score}/10 ข้อ กรุณารับชมการอบรมใหม่`);
+      if (data.passed) {
+        setAnswers({});
+        setIncorrectQuestionIds([]);
+        toast.success("ตอบถูกครบ 10 ข้อ ผ่านแบบทดสอบแล้ว");
+      } else {
+        setIncorrectQuestionIds(data.incorrectQuestionIds || []);
+        toast.error(
+          `ตอบถูก ${data.score}/10 ข้อ กรุณาแก้คำตอบที่ยังไม่ถูกแล้วส่งใหม่`,
+        );
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ส่งคำตอบไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function restart() {
-    if (!session) return;
-    setBusy(true);
-    try {
-      setSession(await post({ action: "restart", token: session.token }));
-      toast.success("เริ่มรอบการอบรมใหม่แล้ว");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "เริ่มใหม่ไม่สำเร็จ",
-      );
     } finally {
       setBusy(false);
     }
@@ -326,9 +338,11 @@ export function GuardianTrainingApp() {
     setStudentCode("");
     setGuardianPhone("");
     setAnswers({});
+    setIncorrectQuestionIds([]);
     setRelationship("");
     setConsent(false);
     setPreview("");
+    window.localStorage.removeItem("guardian-training-token");
   }
 
   if (!session)
@@ -518,7 +532,7 @@ export function GuardianTrainingApp() {
           </div>
         </section>
       )}
-      {session.status === "VIDEO_COMPLETED" && (
+      {["VIDEO_COMPLETED", "QUIZ_FAILED"].includes(session.status) && (
         <section className="flow-card training-quiz-card">
           <header>
             <span className="training-section-icon">
@@ -528,13 +542,18 @@ export function GuardianTrainingApp() {
               <span className="eyebrow">แบบทดสอบถูก–ผิด</span>
               <h2>ตอบให้ถูกครบทั้ง 10 ข้อ</h2>
               <p>
-                ทำได้หนึ่งครั้งต่อการอบรมหนึ่งรอบ หากไม่ผ่านต้องรับชมวิดีโอใหม่
+                หากมีข้อที่ยังไม่ถูก ระบบจะแจ้งให้แก้ไขและส่งคำตอบใหม่ได้ทันที
               </p>
             </div>
           </header>
           <div className="training-question-list">
             {session.questions.map((question, index) => (
-              <fieldset key={question.id}>
+              <fieldset
+                key={question.id}
+                className={
+                  incorrectQuestionIds.includes(question.id) ? "incorrect" : ""
+                }
+              >
                 <legend>
                   <span>{index + 1}</span>
                   <strong>{question.statement}</strong>
@@ -547,12 +566,15 @@ export function GuardianTrainingApp() {
                       type="radio"
                       name={question.id}
                       checked={answers[question.id] === true}
-                      onChange={() =>
+                      onChange={() => {
                         setAnswers((current) => ({
                           ...current,
                           [question.id]: true,
-                        }))
-                      }
+                        }));
+                        setIncorrectQuestionIds((current) =>
+                          current.filter((id) => id !== question.id),
+                        );
+                      }}
                     />
                     ถูก
                   </label>
@@ -563,16 +585,24 @@ export function GuardianTrainingApp() {
                       type="radio"
                       name={question.id}
                       checked={answers[question.id] === false}
-                      onChange={() =>
+                      onChange={() => {
                         setAnswers((current) => ({
                           ...current,
                           [question.id]: false,
-                        }))
-                      }
+                        }));
+                        setIncorrectQuestionIds((current) =>
+                          current.filter((id) => id !== question.id),
+                        );
+                      }}
                     />
                     ผิด
                   </label>
                 </div>
+                {incorrectQuestionIds.includes(question.id) && (
+                  <small className="training-question-error">
+                    คำตอบข้อนี้ยังไม่ถูก กรุณาเลือกใหม่
+                  </small>
+                )}
               </fieldset>
             ))}
           </div>
@@ -583,21 +613,6 @@ export function GuardianTrainingApp() {
           >
             <FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy} />
             {busy ? "กำลังตรวจคำตอบ..." : "ส่งคำตอบทั้ง 10 ข้อ"}
-          </button>
-        </section>
-      )}
-      {session.status === "QUIZ_FAILED" && (
-        <section className="flow-card training-result-card failed">
-          <FontAwesomeIcon icon={faTriangleExclamation} />
-          <span className="eyebrow">ยังไม่ผ่านแบบทดสอบ</span>
-          <h2>ตอบถูก {session.quizScore}/10 ข้อ</h2>
-          <p>
-            ตามเงื่อนไขต้องตอบถูกครบทุกข้อ
-            กรุณารับชมวิดีโอใหม่ตั้งแต่ต้นก่อนทำแบบทดสอบอีกครั้ง
-          </p>
-          <button className="button primary" disabled={busy} onClick={restart}>
-            <FontAwesomeIcon icon={busy ? faSpinner : faRedo} spin={busy} />{" "}
-            เริ่มอบรมรอบใหม่
           </button>
         </section>
       )}

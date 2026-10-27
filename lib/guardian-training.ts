@@ -39,7 +39,7 @@ export async function studentIdFromTrainingToken(token: string) {
 }
 
 export function trainingCanTakeQuiz(status: string) {
-  return status === "VIDEO_COMPLETED";
+  return status === "VIDEO_COMPLETED" || status === "QUIZ_FAILED";
 }
 
 export function trainingCanSubmitIdentity(status: string) {
