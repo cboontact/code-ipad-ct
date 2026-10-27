@@ -26,6 +26,7 @@ import {
   faUser,
   faUserGraduate,
   faUserTie,
+  faUserXmark,
   faUsers,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -127,6 +128,23 @@ export function StudentAdmin({ view = "manage", initialGrade = "", initialRoom =
       return true;
     } catch (error) { toast.error(error instanceof Error ? error.message : "ดำเนินการไม่สำเร็จ"); return false; }
     finally { setBusy(false); }
+  }
+  async function withdrawIpad(row:Row) {
+    const studentId=s(row.id), studentName=`${s(row.prefix)}${s(row.first_name)} ${s(row.last_name)}`.trim();
+    if (!window.confirm(`ยืนยันเปลี่ยน ${studentName} เป็น “ไม่รับ iPad” หรือไม่\n\nข้อมูลลงทะเบียนเดิมจะยังเก็บไว้ และโควตาจะถูกคืน`)) return;
+    setBusy(true);
+    try {
+      const response=await fetch("/api/admin/document-checkin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"withdraw",studentId})});
+      const body=await readJson<{error?:string}>(response);
+      if (!response.ok) throw new Error(body.error);
+      toast.success(`เปลี่ยน ${studentName} เป็นไม่รับ iPad แล้ว`);
+      setRows(current=>current.map(item=>s(item.id)===studentId?{...item,survey_status:"DECLINE",approval_status:"REJECTED",approved_at:new Date().toISOString()}:item));
+      void load({silent:true});
+    } catch(error) {
+      toast.error(error instanceof Error?error.message:"เปลี่ยนสถานะไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
   }
   async function exportResults(type:"summary"|"full",format:"csv"|"xlsx") {
     setBusy(true);
@@ -235,6 +253,7 @@ export function StudentAdmin({ view = "manage", initialGrade = "", initialRoom =
       <tbody>{pagedRows.map(row=><tr key={s(row.id)} className={Number(row.is_active)===0?"inactive-row":""}><td><b>{s(row.student_code)}</b></td><td>{s(row.prefix)}{s(row.first_name)} {s(row.last_name)}</td><td>{s(row.grade_level)}/{s(row.room)}{s(row.class_number)?` เลขที่ ${s(row.class_number)}`:""}</td><td><Status value={s(row.survey_status)}/></td>{!resultsView&&<td><ActiveStatus active={Number(row.is_active)!==0}/></td>}{resultsView&&<><td><ApprovalStatus decision={s(row.survey_status)} value={s(row.approval_status)}/></td><td>{row.submitted_at?new Date(s(row.submitted_at)).toLocaleString("th-TH"):"—"}</td></>}<td><div className="table-actions">
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="APPROVED"&&<button className="icon-button approval-approve-button" title="อนุมัติการรับ iPad" aria-label="อนุมัติการรับ iPad" disabled={busy} onClick={()=>void act("approve",s(row.id))}><FontAwesomeIcon icon={faCircleCheck}/></button>}
         {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="REJECTED"&&<button className="icon-button approval-reject-button" title="ไม่อนุมัติการรับ iPad" aria-label="ไม่อนุมัติการรับ iPad" disabled={busy} onClick={()=>{if(confirm(`ยืนยันไม่อนุมัติการรับ iPad ของ ${s(row.first_name)} ${s(row.last_name)} หรือไม่`))void act("reject",s(row.id));}}><FontAwesomeIcon icon={faBan}/></button>}
+        {resultsView&&s(row.survey_status)==="ACCEPT"&&s(row.approval_status)!=="REJECTED"&&<button className="icon-button danger-icon-button" title="เปลี่ยนใจไม่รับ iPad" aria-label="เปลี่ยนใจไม่รับ iPad" disabled={busy} onClick={()=>void withdrawIpad(row)}><FontAwesomeIcon icon={faUserXmark}/></button>}
         <button className="icon-button" title={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} aria-label={resultsView?"ดูรายละเอียด":"แก้ไขข้อมูลนักเรียน"} onClick={()=>void openEditor(row)}><FontAwesomeIcon icon={resultsView?faUser:faPen}/></button>
         {s(row.survey_status)==="ACCEPT"&&<button className="icon-button" title="พิมพ์ AWAT-03" aria-label="พิมพ์ AWAT-03" onClick={()=>setPrintId(s(row.id))}><FontAwesomeIcon icon={faPrint}/></button>}
         {s(row.survey_status)!=="PENDING"&&<button className="icon-button" title="เปิดให้ตอบใหม่" aria-label="เปิดให้ตอบใหม่" onClick={()=>void act("reopen",s(row.id))}><FontAwesomeIcon icon={faRotateRight}/></button>}
