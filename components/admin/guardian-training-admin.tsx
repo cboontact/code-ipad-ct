@@ -5,6 +5,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faChevronLeft,
+  faChevronRight,
   faEye,
   faFilter,
   faForward,
@@ -464,17 +466,35 @@ export function GuardianTrainingAdmin() {
             <div className="empty-state small">ไม่พบรายชื่อตามตัวกรอง</div>
           )}
         </div>
-        <div className="pagination">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-            ก่อนหน้า
-          </button>
-          <span>
-            หน้า {page} / {pages} · {total.toLocaleString("th-TH")} รายการ
-          </span>
-          <button disabled={page >= pages} onClick={() => setPage(page + 1)}>
-            ถัดไป
-          </button>
-        </div>
+        {total > 50 && (
+          <nav className="table-pagination" aria-label="เปลี่ยนหน้ารายการอบรมผู้ปกครอง">
+            <span>
+              แถว {((page - 1) * 50 + 1).toLocaleString("th-TH")}-
+              {Math.min(page * 50, total).toLocaleString("th-TH")} จาก {total.toLocaleString("th-TH")}
+            </span>
+            <div>
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                aria-label="หน้าก่อนหน้า"
+                title="หน้าก่อนหน้า"
+              >
+                <FontAwesomeIcon icon={faChevronLeft}/>
+              </button>
+              <b>หน้า {page.toLocaleString("th-TH")} / {pages.toLocaleString("th-TH")}</b>
+              <button
+                type="button"
+                disabled={page >= pages || loading}
+                onClick={() => setPage((current) => Math.min(pages, current + 1))}
+                aria-label="หน้าถัดไป"
+                title="หน้าถัดไป"
+              >
+                <FontAwesomeIcon icon={faChevronRight}/>
+              </button>
+            </div>
+          </nav>
+        )}
       </section>
       {review && (
         <div
