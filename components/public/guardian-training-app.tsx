@@ -102,6 +102,7 @@ export function GuardianTrainingApp() {
     [playing, setPlaying] = useState(false),
     [answers, setAnswers] = useState<Record<string, boolean>>({}),
     [incorrectQuestionIds, setIncorrectQuestionIds] = useState<string[]>([]),
+    [showAnswerErrors, setShowAnswerErrors] = useState(false),
     [relationship, setRelationship] = useState(""),
     [consent, setConsent] = useState(false),
     [preview, setPreview] = useState("");
@@ -242,10 +243,18 @@ export function GuardianTrainingApp() {
   }, [playing]);
 
   async function submitQuiz() {
-    if (!session || Object.keys(answers).length !== session.questions.length) {
-      toast.warning("กรุณาตอบให้ครบทั้ง 10 ข้อ");
+    const missingQuestions =
+      session?.questions.filter(
+        (question) => typeof answers[question.id] !== "boolean",
+      ) || [];
+    if (!session || missingQuestions.length > 0) {
+      setShowAnswerErrors(true);
+      toast.warning(
+        `กรุณาตอบคำถามให้ครบ ยังไม่ได้ตอบ ${missingQuestions.length} ข้อ`,
+      );
       return;
     }
+    setShowAnswerErrors(false);
     setBusy(true);
     try {
       const data = await post({
@@ -257,6 +266,7 @@ export function GuardianTrainingApp() {
       if (data.passed) {
         setAnswers({});
         setIncorrectQuestionIds([]);
+        setShowAnswerErrors(false);
         toast.success("ตอบถูกครบ 10 ข้อ ผ่านแบบทดสอบแล้ว");
       } else {
         setIncorrectQuestionIds(data.incorrectQuestionIds || []);
@@ -339,6 +349,7 @@ export function GuardianTrainingApp() {
     setGuardianPhone("");
     setAnswers({});
     setIncorrectQuestionIds([]);
+    setShowAnswerErrors(false);
     setRelationship("");
     setConsent(false);
     setPreview("");
@@ -537,9 +548,14 @@ export function GuardianTrainingApp() {
             {session.questions.map((question, index) => (
               <fieldset
                 key={question.id}
-                className={
-                  incorrectQuestionIds.includes(question.id) ? "incorrect" : ""
-                }
+                className={[
+                  incorrectQuestionIds.includes(question.id) ? "incorrect" : "",
+                  showAnswerErrors && typeof answers[question.id] !== "boolean"
+                    ? "unanswered"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
                 <legend>
                   <span>{index + 1}</span>
@@ -590,6 +606,12 @@ export function GuardianTrainingApp() {
                     คำตอบข้อนี้ยังไม่ถูก กรุณาเลือกใหม่
                   </small>
                 )}
+                {showAnswerErrors &&
+                  typeof answers[question.id] !== "boolean" && (
+                    <small className="training-question-error">
+                      กรุณาเลือกคำตอบข้อนี้
+                    </small>
+                  )}
               </fieldset>
             ))}
           </div>
@@ -599,7 +621,7 @@ export function GuardianTrainingApp() {
             onClick={submitQuiz}
           >
             <FontAwesomeIcon icon={busy ? faSpinner : faCheck} spin={busy} />
-            {busy ? "กำลังตรวจคำตอบ..." : "ส่งคำตอบทั้ง 10 ข้อ"}
+            {busy ? "กำลังตรวจคำตอบ..." : "ส่งคำตอบ"}
           </button>
         </section>
       )}
