@@ -23,11 +23,13 @@ export async function POST(request: Request) {
     );
     const settings = await getSettings(db);
     const student = await db.prepare(`SELECT s.id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.class_number,s.phone,s.school_email,s.ndlp_email,
-      r.id AS response_id,r.decision,r.public_locked,r.approval_status,r.approved_at,r.approval_note,r.submitted_at
+      r.id AS response_id,r.decision,r.public_locked,r.approval_status,r.approved_at,r.approval_note,r.submitted_at,
+      t.student_id AS training_required,t.status AS training_status
       FROM students s LEFT JOIN student_survey_responses r ON r.student_id=s.id
+      LEFT JOIN guardian_training_assignments t ON t.student_id=s.id
       WHERE s.student_code=? AND s.is_active=1`)
       .bind(input.studentCode)
-      .first<{id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;class_number:string|null;phone:string|null;school_email:string|null;ndlp_email:string|null;response_id:string|null;decision:string|null;public_locked:number|null;approval_status:string|null;approved_at:string|null;approval_note:string|null;submitted_at:string|null}>();
+      .first<{id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;class_number:string|null;phone:string|null;school_email:string|null;ndlp_email:string|null;response_id:string|null;decision:string|null;public_locked:number|null;approval_status:string|null;approved_at:string|null;approval_note:string|null;submitted_at:string|null;training_required:string|null;training_status:string|null}>();
     if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้ กรุณาตรวจสอบอีกครั้งหรือติดต่อผู้ดูแลระบบ" }, 404);
     const publicStudent = {
       id: student.id,
@@ -41,7 +43,9 @@ export async function POST(request: Request) {
       ndlpEmail: student.ndlp_email ?? "",
     };
     if (student.public_locked) {
-      const canPrint = student.decision === "ACCEPT" && student.approval_status !== "REJECTED";
+      const trainingRequired = Boolean(student.training_required);
+      const canPrint = student.decision === "ACCEPT" && student.approval_status !== "REJECTED"
+        && (!trainingRequired || student.training_status === "APPROVED");
       const printCookie = canPrint
         ? await createStudentPrintCookie(student.id, request)
         : clearStudentPrintCookie(request);
@@ -54,6 +58,8 @@ export async function POST(request: Request) {
         approvalNote: student.approval_note,
         submittedAt: student.submitted_at,
         canPrint,
+        trainingRequired,
+        trainingStatus: student.training_status,
       }, 200, { "Set-Cookie": printCookie });
     }
     const audience = ["4", "5", "6"].includes(studentGradeNumber(student.grade_level)) ? "student_upper" : "student_lower";

@@ -72,6 +72,7 @@ const eligibleClauses = [
   "r.public_locked=1",
   "r.decision='ACCEPT'",
   "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
+  "NOT EXISTS (SELECT 1 FROM guardian_training_assignments gt WHERE gt.student_id=s.id AND gt.status!='APPROVED')",
 ];
 
 export async function GET(request: Request) {
@@ -88,27 +89,32 @@ export async function GET(request: Request) {
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           dr.received_at,receiver.display_name AS received_by_name,
+          gt.status AS training_status,
           CASE WHEN h.status='ACTIVE' THEN 'ACTIVE' ELSE NULL END AS handover_status
         FROM students s
         LEFT JOIN student_survey_responses r ON r.student_id=s.id
         LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=?
         LEFT JOIN admin_users receiver ON receiver.id=dr.received_by
         LEFT JOIN student_device_handovers h ON h.student_id=s.id AND h.status='ACTIVE'
+        LEFT JOIN guardian_training_assignments gt ON gt.student_id=s.id
         WHERE s.student_code=? AND s.is_active=1
         LIMIT 1`).bind(DOCUMENT_TYPE, studentCode).first<Record<string, unknown>>();
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
       const accepted = student.public_locked === 1 && student.decision === "ACCEPT";
       const rejected = student.approval_status === "REJECTED";
+      const trainingReady = !student.training_status || student.training_status === "APPROVED";
       const hasActiveHandover = student.handover_status === "ACTIVE";
       return json({
         student: {
           ...student,
-          eligible: accepted && !rejected,
+          eligible: accepted && !rejected && trainingReady,
           eligibilityReason: !accepted
             ? "นักเรียนยังไม่ได้ลงทะเบียนเลือกรับ iPad"
             : rejected
               ? "รายการรับ iPad ของนักเรียนไม่ได้รับอนุมัติ"
-              : null,
+              : !trainingReady
+                ? "ผู้ปกครองยังไม่ผ่านการอบรมออนไลน์และการตรวจสอบ"
+                : null,
           withdrawEligible: accepted && !rejected && !hasActiveHandover,
           withdrawReason: !accepted
             ? "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad"

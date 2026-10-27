@@ -10,6 +10,7 @@ import {
   faBullhorn,
   faChartPie,
   faClipboardCheck,
+  faGraduationCap,
   faShieldHalved,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -99,6 +100,9 @@ export function SiteHeader() {
           >
             <FontAwesomeIcon icon={faBullhorn} />{t("ประชาสัมพันธ์", "News")}
           </Link>
+          <Link onClick={() => setMobileMenuOpen(false)} className={pathname === "/training" ? "active" : ""} href="/training">
+            <FontAwesomeIcon icon={faGraduationCap} />{t("อบรมผู้ปกครอง", "Guardian training")}
+          </Link>
           <Link onClick={() => setMobileMenuOpen(false)} className="admin-link" href={accountLink.href}>
             <FontAwesomeIcon icon={accountLink.icon} />
             <span>{accountLink.label}</span>
@@ -121,6 +125,9 @@ export function SiteHeader() {
               </Link>
               <Link onClick={() => setMobileMenuOpen(false)} className={pathname === "/project" ? "active" : ""} href="/project">
                 <FontAwesomeIcon icon={faBullhorn} />{t("ประชาสัมพันธ์", "News")}
+              </Link>
+              <Link onClick={() => setMobileMenuOpen(false)} className={pathname === "/training" ? "active" : ""} href="/training">
+                <FontAwesomeIcon icon={faGraduationCap} />{t("อบรมผู้ปกครอง", "Guardian training")}
               </Link>
               <Link onClick={() => setMobileMenuOpen(false)} className="admin-link" href={accountLink.href}>
                 <FontAwesomeIcon icon={accountLink.icon}/><span>{accountLink.label}</span>

@@ -46,7 +46,9 @@ export async function getPrintableStudent(studentId: string): Promise<PrintableS
     LEFT JOIN class_advisors ca2 ON ca2.grade_level=s.grade_level AND ca2.room=s.room AND ca2.advisor_order=2
     LEFT JOIN teachers advisor2 ON advisor2.id=ca2.teacher_id
     WHERE s.id=? AND r.decision='ACCEPT' AND r.public_locked=1
-      AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`).bind(studentId).first<{
+      AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
+      AND NOT EXISTS (SELECT 1 FROM guardian_training_assignments gta
+        WHERE gta.student_id=s.id AND gta.status!='APPROVED')`).bind(studentId).first<{
       id:string;student_code:string;prefix:string;first_name:string;last_name:string;grade_level:string;room:string;phone:string|null;
       response_id:string;submitted_at:string;pii_ciphertext:string;pii_iv:string;serial_number:string|null;advisor_name:string|null;document_number:number;
     }>();
@@ -81,7 +83,8 @@ export async function getAcceptedStudentIds(filters: StudentPrintFilters = {}): 
   if (filters.status && filters.status !== "ACCEPT") return [];
 
   const db = await ensureDatabase();
-  const clauses = ["s.is_active=1", "r.decision='ACCEPT'", "r.public_locked=1"];
+  const clauses = ["s.is_active=1", "r.decision='ACCEPT'", "r.public_locked=1",
+    "NOT EXISTS (SELECT 1 FROM guardian_training_assignments gta WHERE gta.student_id=s.id AND gta.status!='APPROVED')"];
   const values: string[] = [];
   const grade = filters.grade?.trim();
   const room = filters.room?.trim();

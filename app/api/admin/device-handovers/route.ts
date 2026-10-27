@@ -54,6 +54,7 @@ const baseFromSql = `FROM students s
     ON dr.student_id=s.id AND dr.document_type='${DOCUMENT_TYPE}'
   LEFT JOIN student_device_assignments d ON d.student_id=s.id
   LEFT JOIN student_device_handovers h ON h.student_id=s.id
+  LEFT JOIN guardian_training_assignments gt ON gt.student_id=s.id
   LEFT JOIN admin_users handover_admin ON handover_admin.id=h.handed_over_by
   LEFT JOIN admin_users return_admin ON return_admin.id=h.returned_by`;
 
@@ -67,6 +68,7 @@ const approvedClauses = [
 const statusSql = `CASE
   WHEN h.status='ACTIVE' THEN 'RECEIVED'
   WHEN h.status='RETURNED' THEN 'RETURNED'
+  WHEN gt.student_id IS NOT NULL AND gt.status!='APPROVED' THEN 'NOT_READY'
   WHEN dr.status='RECEIVED' THEN 'READY'
   ELSE 'NOT_READY'
 END`;
@@ -85,6 +87,7 @@ export async function GET(request: Request) {
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           d.id AS assignment_id,d.serial_number,d.asset_number,h.status AS handover_record_status,
+          gt.status AS training_status,
           ${statusSql} AS handover_status,h.recipient_type,h.recipient_name,h.handed_over_at,
           h.returned_at,h.note,handover_admin.display_name AS handed_over_by_name,
           return_admin.display_name AS returned_by_name
@@ -93,6 +96,7 @@ export async function GET(request: Request) {
         LEFT JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=?
         LEFT JOIN student_device_assignments d ON d.student_id=s.id
         LEFT JOIN student_device_handovers h ON h.student_id=s.id
+        LEFT JOIN guardian_training_assignments gt ON gt.student_id=s.id
         LEFT JOIN admin_users handover_admin ON handover_admin.id=h.handed_over_by
         LEFT JOIN admin_users return_admin ON return_admin.id=h.returned_by
         WHERE s.student_code=? AND s.is_active=1 LIMIT 1`)
@@ -100,12 +104,15 @@ export async function GET(request: Request) {
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
       const registered = student.public_locked === 1 && student.decision === "ACCEPT";
       const approved = student.approval_status === "APPROVED";
+      const trainingReady = !student.training_status || student.training_status === "APPROVED";
       const documentsReady = student.document_status === "RECEIVED";
       const alreadyActive = student.handover_record_status === "ACTIVE";
       const eligibilityReason = !registered
         ? "นักเรียนยังไม่ได้ลงทะเบียนเลือกรับ iPad"
         : !approved
           ? "รายการรับ iPad ของนักเรียนยังไม่ได้รับอนุมัติ"
+          : !trainingReady
+            ? "ผู้ปกครองยังไม่ผ่านการอบรมออนไลน์และการตรวจสอบ"
           : !documentsReady
             ? "ยังไม่ได้ตรวจรับเอกสาร AWAT-03"
             : alreadyActive
@@ -166,6 +173,7 @@ export async function GET(request: Request) {
       db.prepare(`SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
+          gt.status AS training_status,
           d.id AS assignment_id,d.serial_number,d.asset_number,${statusSql} AS handover_status,
           h.recipient_type,h.recipient_name,h.handed_over_at,h.returned_at,h.note,
           handover_admin.display_name AS handed_over_by_name,return_admin.display_name AS returned_by_name
@@ -226,9 +234,11 @@ export async function POST(request: Request) {
       FROM students s
       JOIN student_survey_responses r ON r.student_id=s.id
       JOIN student_document_receipts dr ON dr.student_id=s.id AND dr.document_type=? AND dr.status='RECEIVED'
+      LEFT JOIN guardian_training_assignments gt ON gt.student_id=s.id
       LEFT JOIN student_device_assignments d ON d.student_id=s.id
       LEFT JOIN student_device_handovers h ON h.student_id=s.id
-      WHERE s.id=? AND s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND r.approval_status='APPROVED'`)
+      WHERE s.id=? AND s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND r.approval_status='APPROVED'
+        AND (gt.student_id IS NULL OR gt.status='APPROVED')`)
       .bind(DOCUMENT_TYPE, input.studentId).first<Record<string, string | null>>();
     if (!student) return json({ error: "รับเครื่องได้หลังอนุมัติและตรวจรับเอกสารแล้วเท่านั้น" }, 409);
     if (student.handover_status === "ACTIVE") return json({ error: "นักเรียนรับเครื่องแล้ว" }, 409);
