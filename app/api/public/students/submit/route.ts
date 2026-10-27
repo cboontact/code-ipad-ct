@@ -90,7 +90,8 @@ export async function POST(request: Request) {
         approved_at=NULL,
         approved_by=NULL,
         approval_note=NULL
-      WHERE student_survey_responses.public_locked=0
+      WHERE (student_survey_responses.public_locked=0
+        OR (student_survey_responses.decision='DECLINE' AND excluded.decision='ACCEPT'))
         AND (excluded.decision!='ACCEPT' OR (
           (SELECT COUNT(*) FROM student_survey_responses r JOIN students s ON s.id=r.student_id
             WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
@@ -124,14 +125,27 @@ export async function POST(request: Request) {
         409,
       );
     }
-    const canPrint = input.decision === "ACCEPT";
+    const training = input.decision === "ACCEPT"
+      ? await db.prepare(`SELECT t.status,x.student_id AS exemption_id
+          FROM students s
+          LEFT JOIN guardian_training_assignments t ON t.student_id=s.id
+          LEFT JOIN guardian_training_exemptions x ON x.student_id=s.id
+          WHERE s.id=? LIMIT 1`)
+          .bind(student.id)
+          .first<{ status: string | null; exemption_id: string | null }>()
+      : null;
+    const trainingRequired = input.decision === "ACCEPT" && !training?.exemption_id;
+    const canPrint = input.decision === "ACCEPT" &&
+      (!trainingRequired || training?.status === "APPROVED");
     return json(
       {
         success: true,
         studentName: `${student.prefix}${student.first_name} ${student.last_name}`,
         submittedAt: stamp,
-        approvalStatus: canPrint ? "PENDING" : "NOT_REQUIRED",
+        approvalStatus: input.decision === "ACCEPT" ? "PENDING" : "NOT_REQUIRED",
         canPrint,
+        trainingRequired,
+        trainingStatus: training?.status ?? null,
       },
       200,
       {

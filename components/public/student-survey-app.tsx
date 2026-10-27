@@ -44,7 +44,7 @@ type Pii={
   province:string;district:string;subdistrict:string;postalCode:string;
   guardianFullName:string;guardianPhone:string;
 };
-type RegistrationStatus={student:Student;decision:"ACCEPT"|"DECLINE";approvalStatus:"PENDING"|"APPROVED"|"REJECTED"|"NOT_REQUIRED";submittedAt:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean;trainingRequired?:boolean;trainingStatus?:string|null};
+type RegistrationStatus={student:Student;decision:"ACCEPT"|"DECLINE";approvalStatus:"PENDING"|"APPROVED"|"REJECTED"|"NOT_REQUIRED";submittedAt:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean;trainingRequired?:boolean;trainingStatus?:string|null;canChangeToAccept?:boolean;changeToAcceptToken?:string};
 const blankPii:Pii={citizenId:"",houseNo:"",moo:"",soi:"",road:"",province:"เชียงใหม่",district:"",subdistrict:"",postalCode:"",guardianFullName:"",guardianPhone:""};
 
 export function StudentSurveyApp(){
@@ -56,7 +56,8 @@ export function StudentSurveyApp(){
     [pii,setPii]=useState<Pii>(blankPii),[privacy,setPrivacy]=useState(false),
     [provinces,setProvinces]=useState<string[]>([]),[districts,setDistricts]=useState<string[]>([]),
     [subdistricts,setSubdistricts]=useState<SubdistrictOption[]>([]),[busy,setBusy]=useState(false),
-    [confirm,setConfirm]=useState(false),[registration,setRegistration]=useState<RegistrationStatus|null>(null);
+    [confirm,setConfirm]=useState(false),[registration,setRegistration]=useState<RegistrationStatus|null>(null),
+    [changingToAccept,setChangingToAccept]=useState(false);
   const isUpperSecondary=student?["4","5","6"].includes(studentGradeNumber(student.gradeLevel)):false;
 
   useEffect(()=>{
@@ -82,11 +83,11 @@ export function StudentSurveyApp(){
     setBusy(true);
     try{
       const r=await fetch("/api/public/students/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({studentCode:studentCode.trim()})}),
-        data=await readJson<{error?:string;verificationToken?:string;student:Student;alreadyRegistered?:boolean;decision?:"ACCEPT"|"DECLINE";approvalStatus?:RegistrationStatus["approvalStatus"];submittedAt?:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean;trainingRequired?:boolean;trainingStatus?:string|null}>(r);
+        data=await readJson<{error?:string;verificationToken?:string;student:Student;alreadyRegistered?:boolean;decision?:"ACCEPT"|"DECLINE";approvalStatus?:RegistrationStatus["approvalStatus"];submittedAt?:string;approvedAt?:string|null;approvalNote?:string|null;canPrint?:boolean;trainingRequired?:boolean;trainingStatus?:string|null;canChangeToAccept?:boolean}>(r);
       if(!r.ok)throw new Error(data.error);
       setStudent(data.student);setPhone(data.student.phone||"");setEmail(data.student.email||"");setNdlpEmail(data.student.ndlpEmail||"");
       if(data.alreadyRegistered&&data.decision&&data.approvalStatus&&data.submittedAt){
-        setRegistration({student:data.student,decision:data.decision,approvalStatus:data.approvalStatus,submittedAt:data.submittedAt,approvedAt:data.approvedAt,approvalNote:data.approvalNote,canPrint:data.canPrint,trainingRequired:data.trainingRequired,trainingStatus:data.trainingStatus});
+        setRegistration({student:data.student,decision:data.decision,approvalStatus:data.approvalStatus,submittedAt:data.submittedAt,approvedAt:data.approvedAt,approvalNote:data.approvalNote,canPrint:data.canPrint,trainingRequired:data.trainingRequired,trainingStatus:data.trainingStatus,canChangeToAccept:data.canChangeToAccept,changeToAcceptToken:data.verificationToken});
         toast.success("พบข้อมูลการลงทะเบียนแล้ว");
       }else{
         setToken(data.verificationToken||"");
@@ -123,7 +124,7 @@ export function StudentSurveyApp(){
       const payload={studentId:student.id,decision,phone,email:decision==="ACCEPT"?email.trim():"",ndlpEmail:decision==="ACCEPT"?ndlpEmail.trim():"",privacyAcknowledged:decision==="ACCEPT"?privacy:false,pii:decision==="ACCEPT"?piiPayload:undefined};
       const postSurvey=async(verificationToken:string)=>{
         const response=await fetch("/api/public/students/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,verificationToken})});
-        return {response,data:await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"];canPrint?:boolean}>(response)};
+        return {response,data:await readJson<{error?:string;studentName:string;submittedAt:string;approvalStatus:RegistrationStatus["approvalStatus"];canPrint?:boolean;trainingRequired?:boolean;trainingStatus?:string|null}>(response)};
       };
       let result=await postSurvey(token);
       if(result.response.status===401){
@@ -134,11 +135,15 @@ export function StudentSurveyApp(){
         result=await postSurvey(verifyData.verificationToken);
       }
       if(!result.response.ok)throw new Error(result.data.error);
-      setConfirm(false);setRegistration({student,decision,approvalStatus:result.data.approvalStatus,submittedAt:result.data.submittedAt,canPrint:result.data.canPrint});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
+      setConfirm(false);setChangingToAccept(false);setRegistration({student,decision,approvalStatus:result.data.approvalStatus,submittedAt:result.data.submittedAt,canPrint:result.data.canPrint,trainingRequired:result.data.trainingRequired,trainingStatus:result.data.trainingStatus});toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
     }catch(error){toast.error(error instanceof Error?error.message:"บันทึกข้อมูลไม่สำเร็จ");}
     finally{setBusy(false);}
   }
-  function reset(){setStudent(null);setToken("");setDecision(null);setPhone("");setEmail("");setNdlpEmail("");setPii(blankPii);setPrivacy(false);setRegistration(null);setStudentCode("");}
+  function reset(){setStudent(null);setToken("");setDecision(null);setPhone("");setEmail("");setNdlpEmail("");setPii(blankPii);setPrivacy(false);setRegistration(null);setChangingToAccept(false);setStudentCode("");}
+  function beginChangeToAccept(){
+    if(!registration?.changeToAcceptToken){toast.error("ไม่สามารถเปิดแบบฟอร์มเปลี่ยนใจรับ iPad ได้ กรุณาค้นหาข้อมูลใหม่");return;}
+    setStudent(registration.student);setToken(registration.changeToAcceptToken);setPhone(registration.student.phone||"");setEmail(registration.student.email||"");setNdlpEmail(registration.student.ndlpEmail||"");setPii(blankPii);setPrivacy(false);setDecision("ACCEPT");setChangingToAccept(true);setRegistration(null);
+  }
   const input=(key:keyof Pii,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=>(
     <label className="field"><span>{label}<b>*</b></span><input {...props} value={pii[key]} onChange={e=>setPii(current=>({...current,[key]:e.target.value}))}/></label>
   );
@@ -150,7 +155,7 @@ export function StudentSurveyApp(){
     const icon=approved?faCircleCheck:rejected?faCircleXmark:declined?faTriangleExclamation:faClock;
     const title=approved?"ได้รับอนุมัติแล้ว":rejected?"ไม่ได้รับอนุมัติ":declined?"บันทึกว่าไม่รับ iPad แล้ว":"รอผู้ดูแลอนุมัติ";
     const description=approved?"ผู้ดูแลยืนยันสิทธิ์รับ iPad เรียบร้อยแล้ว":rejected?"คำขอรับ iPad ไม่ได้รับการอนุมัติ กรุณาติดต่อผู้ดูแลระบบ":declined?"ระบบบันทึกความประสงค์ของนักเรียนเรียบร้อยแล้ว":"ระบบกันโควตา iPad ไว้แล้ว กรุณารอผู้ดูแลตรวจสอบและอนุมัติ";
-    return <main className="shell public-main student-survey-page"><IpadAvailabilityCounter audience="student" studentTier={["4","5","6"].includes(studentGradeNumber(registration.student.gradeLevel))?"upper":"lower"}/><section className={`student-approval-card ${approved?"approved":rejected?"rejected":declined?"declined":"awaiting"}`}><div className="student-approval-icon"><FontAwesomeIcon icon={icon}/></div><span className="eyebrow">สถานะการลงทะเบียนรับ iPad</span><h1>{title}</h1><p className="student-approval-name">{registration.student.name}</p><div className="student-approval-facts"><span><small>ชั้น / ห้อง</small><b>{registration.student.gradeLevel}/{registration.student.room}</b></span><span><small>เลขที่</small><b>{registration.student.classNumber||"—"}</b></span><span><small>เลขประจำตัวนักเรียน</small><b>{registration.student.studentCode}</b></span></div><p className="student-approval-description">{description}</p>{registration.trainingRequired&&registration.trainingStatus!=="APPROVED"&&<p className="student-approval-note">ผู้ปกครองต้องผ่านการอบรมออนไลน์และการตรวจสอบจากโรงเรียนก่อนพิมพ์เอกสาร AWAT-03</p>}{registration.approvalNote&&<p className="student-approval-note">หมายเหตุ: {registration.approvalNote}</p>}<div className="student-approval-actions">{registration.trainingRequired&&registration.trainingStatus!=="APPROVED"&&<Link className="button primary" href="/training"><FontAwesomeIcon icon={faGraduationCap}/> เข้าอบรมผู้ปกครอง</Link>}{registration.canPrint&&<Link className="button primary" href="/student/print" target="_blank" rel="noopener"><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร AWAT-03</Link>}<button className="button secondary" onClick={reset}><FontAwesomeIcon icon={faArrowLeft}/> ตรวจสอบนักเรียนคนอื่น</button></div></section></main>;
+    return <main className="shell public-main student-survey-page"><IpadAvailabilityCounter audience="student" studentTier={["4","5","6"].includes(studentGradeNumber(registration.student.gradeLevel))?"upper":"lower"}/><section className={`student-approval-card ${approved?"approved":rejected?"rejected":declined?"declined":"awaiting"}`}><div className="student-approval-icon"><FontAwesomeIcon icon={icon}/></div><span className="eyebrow">สถานะการลงทะเบียนรับ iPad</span><h1>{title}</h1><p className="student-approval-name">{registration.student.name}</p><div className="student-approval-facts"><span><small>ชั้น / ห้อง</small><b>{registration.student.gradeLevel}/{registration.student.room}</b></span><span><small>เลขที่</small><b>{registration.student.classNumber||"—"}</b></span><span><small>เลขประจำตัวนักเรียน</small><b>{registration.student.studentCode}</b></span></div><p className="student-approval-description">{description}</p>{registration.trainingRequired&&registration.trainingStatus!=="APPROVED"&&<p className="student-approval-note">ผู้ปกครองต้องผ่านการอบรมออนไลน์และการตรวจสอบจากโรงเรียนก่อนพิมพ์เอกสาร AWAT-03</p>}{registration.approvalNote&&<p className="student-approval-note">หมายเหตุ: {registration.approvalNote}</p>}<div className="student-approval-actions">{declined&&registration.canChangeToAccept&&<button className="button primary" onClick={beginChangeToAccept}><FontAwesomeIcon icon={faMobileScreenButton}/> เปลี่ยนใจรับ iPad</button>}{registration.trainingRequired&&registration.trainingStatus!=="APPROVED"&&<Link className="button primary" href="/training"><FontAwesomeIcon icon={faGraduationCap}/> เข้าอบรมผู้ปกครอง</Link>}{registration.canPrint&&<Link className="button primary" href="/student/print" target="_blank" rel="noopener"><FontAwesomeIcon icon={faPrint}/> พิมพ์เอกสาร AWAT-03</Link>}<button className="button secondary" onClick={reset}><FontAwesomeIcon icon={faArrowLeft}/> ตรวจสอบนักเรียนคนอื่น</button></div></section></main>;
   }
 
   return <main className="shell public-main student-survey-page">
@@ -188,7 +193,7 @@ export function StudentSurveyApp(){
     </section>}
 
     {student&&decision&&(decision==="ACCEPT"||!isUpperSecondary)&&<section className="flow-card form-card">
-      <button className="back" onClick={()=>setDecision(null)}><FontAwesomeIcon icon={faArrowLeft}/> เปลี่ยนคำตอบ</button>
+      <button className="back" onClick={()=>changingToAccept?reset():setDecision(null)}><FontAwesomeIcon icon={faArrowLeft}/> {changingToAccept?"กลับไปตรวจสอบสถานะ":"เปลี่ยนคำตอบ"}</button>
       <div className={`decision-summary ${decision.toLowerCase()}`}><FontAwesomeIcon icon={decision==="ACCEPT"?faMobileScreenButton:faTriangleExclamation}/><span><small>ความประสงค์</small><b>{decision==="ACCEPT"?"รับ iPad":"ไม่รับ iPad"}</b></span></div>
       <section className="student-profile-summary">
         <header><span>1</span><div><small>ข้อมูลนักเรียน</small><h2>{student.name}</h2></div></header>

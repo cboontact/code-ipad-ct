@@ -85,7 +85,9 @@ export async function POST(request: Request) {
     };
     if (student.public_locked) {
       const trainingRequired =
-        !student.training_exempt && student.handover_status !== "ACTIVE";
+        student.decision === "ACCEPT" &&
+        !student.training_exempt &&
+        student.handover_status !== "ACTIVE";
       const canPrint =
         student.decision === "ACCEPT" &&
         student.approval_status !== "REJECTED" &&
@@ -93,6 +95,12 @@ export async function POST(request: Request) {
       const printCookie = canPrint
         ? await createStudentPrintCookie(student.id, request)
         : clearStudentPrintCookie(request);
+      const changeToAcceptToken = student.decision === "DECLINE"
+        ? await signToken(
+            { studentId: student.id, purpose: "student-survey" },
+            2 * 60 * 60,
+          )
+        : undefined;
       return json(
         {
           alreadyRegistered: true,
@@ -108,6 +116,8 @@ export async function POST(request: Request) {
           trainingRequired,
           trainingStatus: student.training_status,
           trainingExempt: Boolean(student.training_exempt),
+          canChangeToAccept: student.decision === "DECLINE",
+          verificationToken: changeToAcceptToken,
         },
         200,
         { "Set-Cookie": printCookie },
