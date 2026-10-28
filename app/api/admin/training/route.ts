@@ -127,15 +127,15 @@ export async function GET(request: Request) {
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status
         ${from} ${where}
         ORDER BY
-          CASE WHEN x.student_id IS NOT NULL THEN x.updated_at ELSE t.updated_at END DESC,
-          CASE WHEN x.student_id IS NOT NULL THEN 8
-            WHEN t.status='APPROVED' THEN 7
-            WHEN t.status='REVIEW_PENDING' THEN 6
-            WHEN t.status='QUIZ_PASSED' THEN 5
-            WHEN t.status='VIDEO_COMPLETED' THEN 4
-            WHEN t.status='IN_PROGRESS' THEN 3
-            WHEN t.status IN ('REJECTED','QUIZ_FAILED') THEN 2
+          CASE WHEN t.status='REVIEW_PENDING' THEN 9
+            WHEN x.student_id IS NOT NULL THEN 8
+            WHEN t.status='APPROVED' THEN 8
+            WHEN t.status='QUIZ_PASSED' THEN 7
+            WHEN t.status='VIDEO_COMPLETED' THEN 6
+            WHEN t.status='IN_PROGRESS' THEN 5
+            WHEN t.status IN ('REJECTED','QUIZ_FAILED') THEN 4
             ELSE 1 END DESC,
+          CASE WHEN x.student_id IS NOT NULL THEN x.updated_at ELSE t.updated_at END DESC,
           s.grade_level,CAST(s.room AS INTEGER),s.room,CAST(s.class_number AS INTEGER),s.first_name,s.last_name
         LIMIT ? OFFSET ?`,
         )
