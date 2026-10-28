@@ -277,6 +277,7 @@ const translations: Record<string, string> = {
   "เลือกอำเภอ": "Select a district",
   "เลือกตำบล": "Select a subdistrict",
   "เจ้าหน้าที่และครูต่างชาติไม่จำเป็นต้องกรอกอีเมล NDLP": "NDLP email is optional for staff and international teachers.",
+  "อีเมล NDLP ไม่บังคับสำหรับการลงทะเบียนครู": "NDLP email is optional for teacher registration.",
   "นักเรียนต่างชาติไม่จำเป็นต้องกรอกอีเมล NDLP": "NDLP email is optional for international students.",
   "(ไม่บังคับ)": "(Optional)",
   "คำแนะนำสำหรับนักเรียนมัธยมศึกษาตอนปลาย": "Guidance for upper-secondary students",

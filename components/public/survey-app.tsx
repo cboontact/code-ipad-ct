@@ -28,7 +28,6 @@ import {
 import { toast } from "sonner";
 import { isValidStudentIdentityId, normalizeStudentIdentityId } from "@/lib/validation/survey";
 import { NDLP_EMAIL_PATTERN, SCHOOL_EMAIL_PATTERN, isNdlpEmail, isSchoolEmail } from "@/lib/validation/email-domains";
-import { isNonThaiIdentityId } from "@/lib/validation/student-identity";
 import { readJson } from "@/lib/client-json";
 import { IpadProductVisual } from "@/components/public/ipad-product-visual";
 import { IpadAvailabilityCounter } from "@/components/public/ipad-availability-counter";
@@ -257,16 +256,13 @@ export function SurveyApp() {
   }
   function validateProfile() {
     const next: Partial<Record<keyof TeacherProfile, string>> = {};
-    const ndlpOptional = area?.id === "staff"
-      || Boolean(selected && /^[A-Za-z]/.test(selected.prefix.trim()))
-      || isNonThaiIdentityId(pii.citizenId);
     if (!positionOptions.some((position) => position === profile.position))
       next.position = "กรุณาเลือกตำแหน่ง";
     if (!profile.academicRank)
       next.academicRank = "กรุณาเลือกวิทยฐานะ";
     if (!isSchoolEmail(profile.email))
       next.email = "อีเมลโรงเรียนต้องลงท้ายด้วย @chomthong.ac.th";
-    if (!ndlpOptional && !isNdlpEmail(profile.ndlpEmail))
+    if (profile.ndlpEmail.trim() && !isNdlpEmail(profile.ndlpEmail))
       next.ndlpEmail = "อีเมล NDLP ต้องลงท้ายด้วย @ndlp.go.th";
     if (!/^0(?:6|8|9)\d{8}$|^0(?:2|3|4|5|7)\d{7}$/.test(profile.phone))
       next.phone = "หมายเลขโทรศัพท์ไม่ถูกต้อง";
@@ -836,10 +832,7 @@ export function SurveyApp() {
               pattern: NDLP_EMAIL_PATTERN,
               title: "ต้องใช้อีเมล @ndlp.go.th",
               placeholder: "name@ndlp.go.th",
-            }, area?.id === "staff" || Boolean(selected && /^[A-Za-z]/.test(selected.prefix.trim())) || isNonThaiIdentityId(pii.citizenId)
-              ? "เจ้าหน้าที่และครูต่างชาติไม่จำเป็นต้องกรอกอีเมล NDLP"
-              : "หากลืมอีเมล NDLP ให้ติดต่อครูวิทยา หรือครูธนา",
-              !(area?.id === "staff" || Boolean(selected && /^[A-Za-z]/.test(selected.prefix.trim())) || isNonThaiIdentityId(pii.citizenId)))}
+            }, "อีเมล NDLP ไม่บังคับสำหรับการลงทะเบียนครู", false)}
             {profileField("phone", "เบอร์โทรศัพท์", {
               inputMode: "tel",
               maxLength: 10,
