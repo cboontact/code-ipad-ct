@@ -140,6 +140,9 @@ export async function GET(request: Request) {
             WHEN t.status='IN_PROGRESS' THEN 5
             WHEN t.status IN ('REJECTED','QUIZ_FAILED') THEN 4
             ELSE 1 END DESC,
+          CASE WHEN h.status='ACTIVE' AND t.quiz_score IS NOT NULL THEN 2
+            WHEN h.status='ACTIVE' AND (COALESCE(t.watched_seconds,0)>0 OR t.guardian_name IS NOT NULL) THEN 1
+            ELSE 0 END DESC,
           CASE WHEN x.student_id IS NOT NULL THEN x.updated_at ELSE t.updated_at END DESC,
           s.grade_level,CAST(s.room AS INTEGER),s.room,CAST(s.class_number AS INTEGER),s.first_name,s.last_name
         LIMIT ? OFFSET ?`,
