@@ -286,7 +286,7 @@ export function GuardianTrainingApp() {
       toast.warning("กรุณาอ่านและยอมรับ PDPA ก่อนอัปโหลดภาพ");
       return;
     }
-    if (!file.type.startsWith("image/")) {
+    if (file.type && !file.type.startsWith("image/")) {
       toast.warning("กรุณาเลือกไฟล์ภาพ");
       return;
     }
@@ -294,13 +294,15 @@ export function GuardianTrainingApp() {
     const url = URL.createObjectURL(file);
     setPreview(url);
     try {
-      const form = new FormData();
-      form.set("token", session.token);
-      form.set("pdpaConsent", "true");
-      form.set("selfie", file);
       const response = await fetch("/api/public/training/selfie", {
         method: "POST",
-        body: form,
+        headers: {
+          "Content-Type": file.type || "image/unknown",
+          "X-Training-Token": encodeURIComponent(session.token),
+          "X-PDPA-Consent": "true",
+          "X-Upload-Filename": encodeURIComponent(file.name),
+        },
+        body: file,
       });
       const data = await readJson<{ success?: boolean; error?: string }>(
         response,
@@ -728,7 +730,7 @@ export function GuardianTrainingApp() {
                 type="file"
                 hidden
                 disabled={!consent}
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/*,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff"
                 capture="user"
                 onChange={(event) => void upload(event.target.files?.[0])}
               />

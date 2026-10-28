@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { uploadPublicityDocument } from "../lib/documents/upload";
+import { uploadTrainingSelfie } from "../lib/training/selfie-upload";
 
 interface Env {
   ASSETS: Fetcher;
@@ -133,6 +134,14 @@ const worker = {
       url.pathname === "/api/admin/documents"
     )
       return uploadPublicityDocument(request);
+
+    // Stream identity photos straight to R2 so large phone photos do not pass
+    // through Vinext's buffered multipart adapter.
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/public/training/selfie"
+    )
+      return uploadTrainingSelfie(request);
 
     const cacheTtl =
       request.method === "GET" && !request.headers.has("Range")
