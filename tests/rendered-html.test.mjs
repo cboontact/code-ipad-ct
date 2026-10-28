@@ -123,7 +123,11 @@ test("ships responsive styles and the current registration experience", async ()
   assert.match(handovers, /สถานะการรับเครื่อง/);
   assert.match(handovers, /ไม่ระบุ \(ไม่บังคับ\)/);
   assert.match(handoversApi, /STUDENT_DEVICE_HANDOVER/);
-  assert.match(handoversApi, /r\.approval_status='APPROVED'/);
+  assert.match(handoversApi, /r\.decision='ACCEPT'/);
+  assert.match(handoversApi, /dr\.status='RECEIVED'/);
+  assert.match(handoversApi, /gt\.status='APPROVED'/);
+  assert.match(handoversApi, /guardian_training_exemptions/);
+  assert.doesNotMatch(handoversApi, /r\.approval_status='APPROVED'/);
   assert.match(handoversMigration, /student_device_handover_events/);
   assert.match(teacherHandovers, /สถานะการรับเครื่องครู/);
   assert.doesNotMatch(teacherHandovers, /เช็คด่วน|บันทึกครูรับเครื่องแบบรวดเร็ว/);

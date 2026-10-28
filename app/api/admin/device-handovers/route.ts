@@ -72,11 +72,11 @@ const baseFromSql = `FROM students s
   LEFT JOIN admin_users handover_admin ON handover_admin.id=h.handed_over_by
   LEFT JOIN admin_users return_admin ON return_admin.id=h.returned_by`;
 
-const approvedClauses = [
+const registeredClauses = [
   "s.is_active=1",
   "r.public_locked=1",
   "r.decision='ACCEPT'",
-  "r.approval_status='APPROVED'",
+  "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
 ];
 
 const statusSql = `CASE
@@ -124,7 +124,6 @@ export async function GET(request: Request) {
       if (!student) return json({ error: "ไม่พบเลขประจำตัวนักเรียนนี้" }, 404);
       const registered =
         student.public_locked === 1 && student.decision === "ACCEPT";
-      const approved = student.approval_status === "APPROVED";
       const trainingReady =
         Boolean(student.training_exempt) ||
         student.training_status === "APPROVED";
@@ -132,15 +131,13 @@ export async function GET(request: Request) {
       const alreadyActive = student.handover_record_status === "ACTIVE";
       const eligibilityReason = !registered
         ? "นักเรียนยังไม่ได้ลงทะเบียนเลือกรับ iPad"
-        : !approved
-          ? "รายการรับ iPad ของนักเรียนยังไม่ได้รับอนุมัติ"
+        : !documentsReady
+          ? "ยังไม่ได้ตรวจรับเอกสาร AWAT-03"
           : !trainingReady
             ? "ผู้ปกครองยังไม่ผ่านการอบรมออนไลน์และการตรวจสอบ"
-            : !documentsReady
-              ? "ยังไม่ได้ตรวจรับเอกสาร AWAT-03"
-              : alreadyActive
-                ? "นักเรียนรับเครื่องแล้ว"
-                : null;
+            : alreadyActive
+              ? "นักเรียนรับเครื่องแล้ว"
+              : null;
       return json({
         student: {
           ...student,
@@ -192,7 +189,7 @@ export async function GET(request: Request) {
     }
 
     const page = pageNumber(url.searchParams.get("page"));
-    const baseClauses = [...approvedClauses];
+    const baseClauses = [...registeredClauses];
     const baseBindings: unknown[] = [];
     addStudentFilters(url, baseClauses, baseBindings);
     const listClauses = [...baseClauses];
@@ -229,7 +226,7 @@ export async function GET(request: Request) {
           `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
-          gt.status AS training_status,
+          gt.status AS training_status,CASE WHEN gx.student_id IS NOT NULL THEN 1 ELSE 0 END AS training_exempt,
           d.id AS assignment_id,d.serial_number,d.asset_number,${statusSql} AS handover_status,
           h.recipient_type,h.recipient_name,h.handed_over_at,h.returned_at,h.note,
           handover_admin.display_name AS handed_over_by_name,return_admin.display_name AS returned_by_name
@@ -243,7 +240,7 @@ export async function GET(request: Request) {
         .prepare(
           `SELECT DISTINCT s.grade_level,s.room FROM students s
         JOIN student_survey_responses r ON r.student_id=s.id
-        WHERE ${approvedClauses.join(" AND ")}
+        WHERE ${registeredClauses.join(" AND ")}
         ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`,
         )
         .all(),
@@ -345,14 +342,15 @@ export async function POST(request: Request) {
       LEFT JOIN guardian_training_exemptions gx ON gx.student_id=s.id
       LEFT JOIN student_device_assignments d ON d.student_id=s.id
       LEFT JOIN student_device_handovers h ON h.student_id=s.id
-      WHERE s.id=? AND s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND r.approval_status='APPROVED'
+      WHERE s.id=? AND s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT'
+        AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
         AND (gx.student_id IS NOT NULL OR gt.status='APPROVED')`,
       )
       .bind(DOCUMENT_TYPE, input.studentId)
       .first<Record<string, string | null>>();
     if (!student)
       return json(
-        { error: "รับเครื่องได้หลังอนุมัติและตรวจรับเอกสารแล้วเท่านั้น" },
+        { error: "รับเครื่องได้เมื่อลงทะเบียนรับ ตรวจรับเอกสาร และผ่านหรือได้รับยกเว้นการอบรมครบแล้วเท่านั้น" },
         409,
       );
     if (student.handover_status === "ACTIVE")
