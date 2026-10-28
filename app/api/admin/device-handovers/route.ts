@@ -104,7 +104,10 @@ export async function GET(request: Request) {
           s.grade_level,s.room,s.class_number,r.decision,r.public_locked,r.approval_status,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
           d.id AS assignment_id,d.serial_number,d.asset_number,h.status AS handover_record_status,
-          gt.status AS training_status,gx.student_id AS training_exempt,
+          gt.status AS training_status,
+          CASE WHEN gx.student_id IS NOT NULL OR
+            (h.status IN ('ACTIVE','RETURNED') AND COALESCE(gt.status,'ASSIGNED')!='APPROVED')
+            THEN 1 ELSE 0 END AS training_exempt,
           ${statusSql} AS handover_status,h.recipient_type,h.recipient_name,h.handed_over_at,
           h.returned_at,h.note,handover_admin.display_name AS handed_over_by_name,
           return_admin.display_name AS returned_by_name
@@ -226,7 +229,10 @@ export async function GET(request: Request) {
           `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,
           s.grade_level,s.room,s.class_number,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status,
-          gt.status AS training_status,CASE WHEN gx.student_id IS NOT NULL THEN 1 ELSE 0 END AS training_exempt,
+          gt.status AS training_status,
+          CASE WHEN gx.student_id IS NOT NULL OR
+            (h.status IN ('ACTIVE','RETURNED') AND COALESCE(gt.status,'ASSIGNED')!='APPROVED')
+            THEN 1 ELSE 0 END AS training_exempt,
           d.id AS assignment_id,d.serial_number,d.asset_number,${statusSql} AS handover_status,
           h.recipient_type,h.recipient_name,h.handed_over_at,h.returned_at,h.note,
           handover_admin.display_name AS handed_over_by_name,return_admin.display_name AS returned_by_name

@@ -40,7 +40,7 @@ function HandoverStatus({row}:{row:Row}) {
 
 function TrainingStatus({row}:{row:Row}) {
   const exempt=Number(row.training_exempt)===1,approved=text(row.training_status)==="APPROVED";
-  return <span className={`document-status ${exempt||approved?"received":"pending"}`}><FontAwesomeIcon icon={exempt||approved?faCircleCheck:faClock}/>{exempt?"ยกเว้น":approved?"ผ่านแล้ว":"ยังไม่ผ่าน"}</span>;
+  return <span className={`document-status ${exempt||approved?"received":"pending"}`}><FontAwesomeIcon icon={exempt||approved?faCircleCheck:faClock}/>{exempt?"ยกเว้นการอบรม":approved?"ผ่านแล้ว":"ยังไม่ผ่าน"}</span>;
 }
 
 function Recipient({row}:{row:Row}) {
