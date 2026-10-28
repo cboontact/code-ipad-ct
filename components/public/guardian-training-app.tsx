@@ -286,7 +286,8 @@ export function GuardianTrainingApp() {
       toast.warning("กรุณาอ่านและยอมรับ PDPA ก่อนอัปโหลดภาพ");
       return;
     }
-    if (file.type && !file.type.startsWith("image/")) {
+    const imageExtension = /\.(?:jpe?g|jfif|png|webp|gif|heic|heif|avif|bmp|tiff?|dng|raw|svg)$/i;
+    if (file.type && !file.type.startsWith("image/") && !imageExtension.test(file.name)) {
       toast.warning("กรุณาเลือกไฟล์ภาพ");
       return;
     }
@@ -730,7 +731,7 @@ export function GuardianTrainingApp() {
                 type="file"
                 hidden
                 disabled={!consent}
-                accept="image/*,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff"
+                accept="image/*,.heic,.heif,.avif,.dng,.raw,.gif,.bmp,.tif,.tiff,.jfif"
                 capture="user"
                 onChange={(event) => void upload(event.target.files?.[0])}
               />

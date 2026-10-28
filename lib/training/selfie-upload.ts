@@ -17,8 +17,16 @@ const knownExtensions: Record<string, string> = {
   "image/avif": "avif",
   "image/bmp": "bmp",
   "image/tiff": "tiff",
+  "image/x-adobe-dng": "dng",
+  "image/dng": "dng",
+  "application/x-adobe-dng": "dng",
   "image/svg+xml": "svg",
 };
+
+const imageFileExtensions = new Set([
+  "jpg", "jpeg", "jfif", "png", "webp", "gif", "heic", "heif", "avif",
+  "bmp", "tif", "tiff", "dng", "raw", "svg",
+]);
 
 function headerValue(request: Request, name: string) {
   try {
@@ -54,7 +62,13 @@ export async function uploadTrainingSelfie(request: Request) {
       .split(";", 1)[0]
       .trim()
       .toLowerCase();
-    if (!contentType.startsWith("image/"))
+    const filenameExtension = filename
+      .match(/\.([a-z0-9]{1,10})$/i)?.[1]
+      ?.toLowerCase();
+    const isImageFile =
+      contentType.startsWith("image/") ||
+      (filenameExtension ? imageFileExtensions.has(filenameExtension) : false);
+    if (!isImageFile)
       return json({ error: "กรุณาเลือกไฟล์ภาพ" }, 400);
 
     const db = await ensureDatabase();
@@ -68,9 +82,14 @@ export async function uploadTrainingSelfie(request: Request) {
       return json({ error: "สถานะนี้ยังไม่สามารถส่งภาพยืนยันตัวตนได้" }, 409);
 
     const extension = imageExtension(contentType, filename);
+    const storedContentType = contentType.startsWith("image/")
+      ? contentType
+      : filenameExtension === "dng" || filenameExtension === "raw"
+        ? "image/x-adobe-dng"
+        : "application/octet-stream";
     const objectKey = `guardian-training/selfies/${studentId}/${id()}.${extension}`;
     await getEnv().FILES.put(objectKey, request.body, {
-      httpMetadata: { contentType, cacheControl: "private, no-store" },
+      httpMetadata: { contentType: storedContentType, cacheControl: "private, no-store" },
     });
     const stamp = now();
     await db
