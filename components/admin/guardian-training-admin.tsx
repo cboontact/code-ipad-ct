@@ -35,6 +35,17 @@ const labels: Record<string, string> = {
   REJECTED: "ให้ส่งใหม่",
   EXEMPT: "ยกเว้นการอบรม",
 };
+const statusIcons = {
+  ASSIGNED: faGraduationCap,
+  IN_PROGRESS: faForward,
+  VIDEO_COMPLETED: faForward,
+  QUIZ_FAILED: faRedo,
+  QUIZ_PASSED: faUserCheck,
+  REVIEW_PENDING: faEye,
+  APPROVED: faUserCheck,
+  REJECTED: faXmark,
+  EXEMPT: faShieldHalved,
+};
 
 export function GuardianTrainingAdmin() {
   const [rows, setRows] = useState<Row[]>([]),
@@ -366,6 +377,12 @@ export function GuardianTrainingAdmin() {
                         <span
                           className={`training-status ${state.toLowerCase()}`}
                         >
+                          <FontAwesomeIcon
+                            icon={
+                              statusIcons[state as keyof typeof statusIcons] ||
+                              faGraduationCap
+                            }
+                          />
                           {labels[state] || state}
                         </span>
                       </td>
