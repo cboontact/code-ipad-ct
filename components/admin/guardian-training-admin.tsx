@@ -415,9 +415,21 @@ export function GuardianTrainingAdmin() {
                             >
                               <FontAwesomeIcon icon={faEye} /> ตรวจสอบ
                             </button>
+                          ) : state === "APPROVED" ? (
+                            <button
+                              className="icon-button"
+                              title="ดูข้อมูลผู้เข้าอบรม"
+                              aria-label="ดูข้อมูลผู้เข้าอบรม"
+                              onClick={() => {
+                                setReview(row);
+                                setRejecting(false);
+                                setNote("");
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faEye} />
+                            </button>
                           ) : (
-                            state !== "APPROVED" && (
-                              <>
+                            <>
                                 {canAllowQuiz && (
                                   <button
                                     className="icon-button"
@@ -468,8 +480,7 @@ export function GuardianTrainingAdmin() {
                                 >
                                   <FontAwesomeIcon icon={faShieldHalved} />
                                 </button>
-                              </>
-                            )
+                            </>
                           )}
                         </div>
                       </td>
@@ -527,7 +538,11 @@ export function GuardianTrainingAdmin() {
           >
             <header>
               <div>
-                <span className="eyebrow">ตรวจสอบผู้เข้าอบรม</span>
+                <span className="eyebrow">
+                  {text(review.training_status) === "APPROVED"
+                    ? "ข้อมูลผู้เข้าอบรม"
+                    : "ตรวจสอบผู้เข้าอบรม"}
+                </span>
                 <h2>
                   {text(review.prefix)}
                   {text(review.first_name)} {text(review.last_name)}
@@ -560,6 +575,10 @@ export function GuardianTrainingAdmin() {
                 <b>{text(review.guardian_relationship) || "—"}</b>
               </span>
               <span>
+                <small>เบอร์โทรศัพท์</small>
+                <b>{text(review.guardian_phone) || "—"}</b>
+              </span>
+              <span>
                 <small>คะแนน</small>
                 <b>{number(review.quiz_score)}/10</b>
               </span>
@@ -580,7 +599,15 @@ export function GuardianTrainingAdmin() {
               </label>
             )}
             <div className="modal-actions">
-              {rejecting ? (
+              {text(review.training_status) === "APPROVED" ? (
+                <button
+                  className="button secondary"
+                  style={{ gridColumn: "1 / -1" }}
+                  onClick={() => setReview(null)}
+                >
+                  <FontAwesomeIcon icon={faXmark} /> ปิด
+                </button>
+              ) : rejecting ? (
                 <>
                   <button
                     className="button secondary"
