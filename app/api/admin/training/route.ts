@@ -127,8 +127,8 @@ export async function GET(request: Request) {
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status
         ${from} ${where}
         ORDER BY
-          CASE WHEN t.status='REVIEW_PENDING' THEN 9
-            WHEN x.student_id IS NOT NULL THEN 8
+          CASE WHEN x.student_id IS NOT NULL THEN 0
+            WHEN t.status='REVIEW_PENDING' THEN 9
             WHEN t.status='APPROVED' THEN 8
             WHEN t.status='QUIZ_PASSED' THEN 7
             WHEN t.status='VIDEO_COMPLETED' THEN 6
