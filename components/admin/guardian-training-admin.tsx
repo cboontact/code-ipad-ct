@@ -15,6 +15,7 @@ import {
   faRedo,
   faShieldHalved,
   faSpinner,
+  faTabletScreenButton,
   faUserCheck,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -34,6 +35,7 @@ const labels: Record<string, string> = {
   APPROVED: "อนุมัติแล้ว",
   REJECTED: "ให้ส่งใหม่",
   EXEMPT: "ยกเว้นการอบรม",
+  HANDED_OVER: "รับเครื่องแล้ว",
 };
 const statusIcons = {
   ASSIGNED: faGraduationCap,
@@ -45,6 +47,7 @@ const statusIcons = {
   APPROVED: faUserCheck,
   REJECTED: faXmark,
   EXEMPT: faShieldHalved,
+  HANDED_OVER: faTabletScreenButton,
 };
 
 export function GuardianTrainingAdmin() {
@@ -140,7 +143,9 @@ export function GuardianTrainingAdmin() {
       setBusy(false);
     }
   }
-  const selectable = rows.map((row) => text(row.student_id));
+  const selectable = rows
+    .filter((row) => text(row.training_status) !== "HANDED_OVER")
+    .map((row) => text(row.student_id));
   const allSelected =
     selectable.length > 0 && selectable.every((id) => selected.includes(id));
   function toggleAll() {
@@ -326,12 +331,14 @@ export function GuardianTrainingAdmin() {
                       "IN_PROGRESS",
                       "QUIZ_FAILED",
                       "VIDEO_COMPLETED",
-                    ].includes(state);
+                    ].includes(state),
+                    handedOver = state === "HANDED_OVER";
                   return (
                     <tr key={id}>
                       <td>
                         <input
                           type="checkbox"
+                          disabled={handedOver}
                           checked={selected.includes(id)}
                           onChange={() =>
                             setSelected((current) =>
@@ -388,7 +395,20 @@ export function GuardianTrainingAdmin() {
                       </td>
                       <td>
                         <div className="table-actions">
-                          {state === "EXEMPT" ? (
+                          {handedOver ? (
+                            <button
+                              className="icon-button"
+                              title="ดูข้อมูลการอบรมย้อนหลัง"
+                              aria-label="ดูข้อมูลการอบรมย้อนหลัง"
+                              onClick={() => {
+                                setReview(row);
+                                setRejecting(false);
+                                setNote("");
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faEye} />
+                            </button>
+                          ) : state === "EXEMPT" ? (
                             <button
                               className="button small"
                               disabled={busy}
@@ -539,7 +559,7 @@ export function GuardianTrainingAdmin() {
             <header>
               <div>
                 <span className="eyebrow">
-                  {text(review.training_status) === "APPROVED"
+                  {["APPROVED", "HANDED_OVER"].includes(text(review.training_status))
                     ? "ข้อมูลผู้เข้าอบรม"
                     : "ตรวจสอบผู้เข้าอบรม"}
                 </span>
@@ -560,11 +580,17 @@ export function GuardianTrainingAdmin() {
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </header>
-            <img
-              className="training-review-selfie"
-              src={`/api/admin/training/selfie/${text(review.student_id)}?v=${encodeURIComponent(text(review.submitted_at))}`}
-              alt="ภาพยืนยันตัวตนผู้ปกครอง"
-            />
+            {review.selfie_object_key ? (
+              <img
+                className="training-review-selfie"
+                src={`/api/admin/training/selfie/${text(review.student_id)}?v=${encodeURIComponent(text(review.submitted_at))}`}
+                alt="ภาพยืนยันตัวตนผู้ปกครอง"
+              />
+            ) : (
+              <div className="empty-state small">
+                ไม่มีภาพยืนยันตัวตน เนื่องจากรับเครื่องก่อนเริ่มระบบอบรม
+              </div>
+            )}
             <div className="training-review-facts">
               <span>
                 <small>ผู้เข้าอบรม</small>
@@ -599,7 +625,7 @@ export function GuardianTrainingAdmin() {
               </label>
             )}
             <div className="modal-actions">
-              {text(review.training_status) === "APPROVED" ? (
+              {["APPROVED", "HANDED_OVER"].includes(text(review.training_status)) ? (
                 <button
                   className="button secondary"
                   style={{ gridColumn: "1 / -1" }}

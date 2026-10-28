@@ -76,7 +76,6 @@ export async function GET(request: Request) {
       "r.public_locked=1",
       "r.decision='ACCEPT'",
       "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
-      "(h.status IS NULL OR h.status!='ACTIVE')",
     ];
     const values: unknown[] = [];
     const search = url.searchParams.get("search")?.trim().toLowerCase(),
@@ -97,13 +96,17 @@ export async function GET(request: Request) {
       clauses.push("s.room=?");
       values.push(room);
     }
-    if (status === "EXEMPT") clauses.push("x.student_id IS NOT NULL");
+    if (status === "HANDED_OVER") clauses.push("h.status='ACTIVE'");
+    else if (status === "EXEMPT") {
+      clauses.push("(h.status IS NULL OR h.status!='ACTIVE')");
+      clauses.push("x.student_id IS NOT NULL");
+    }
     else if (status === "ASSIGNED")
       clauses.push(
-        "x.student_id IS NULL AND (t.student_id IS NULL OR t.status='ASSIGNED')",
+        "(h.status IS NULL OR h.status!='ACTIVE') AND x.student_id IS NULL AND (t.student_id IS NULL OR t.status='ASSIGNED')",
       );
     else if (status) {
-      clauses.push("x.student_id IS NULL AND t.status=?");
+      clauses.push("(h.status IS NULL OR h.status!='ACTIVE') AND x.student_id IS NULL AND t.status=?");
       values.push(status);
     }
     const from = `FROM students s JOIN student_survey_responses r ON r.student_id=s.id
@@ -120,14 +123,16 @@ export async function GET(request: Request) {
       db
         .prepare(
           `SELECT s.id AS student_id,s.student_code,s.prefix,s.first_name,s.last_name,s.grade_level,s.room,s.class_number,
-          CASE WHEN x.student_id IS NOT NULL THEN 'EXEMPT' ELSE COALESCE(t.status,'ASSIGNED') END AS training_status,
+          CASE WHEN h.status='ACTIVE' THEN 'HANDED_OVER'
+            WHEN x.student_id IS NOT NULL THEN 'EXEMPT' ELSE COALESCE(t.status,'ASSIGNED') END AS training_status,
           t.cycle,t.watched_seconds,t.video_duration,t.quiz_score,t.quiz_attempts,
           t.guardian_name,t.guardian_relationship,t.guardian_phone,t.selfie_object_key,t.submitted_at,t.reviewed_at,t.review_note,
           x.reason AS exemption_reason,x.exempted_at,
           CASE WHEN dr.status='RECEIVED' THEN 'RECEIVED' ELSE 'PENDING' END AS document_status
         ${from} ${where}
         ORDER BY
-          CASE WHEN x.student_id IS NOT NULL THEN 0
+          CASE WHEN h.status='ACTIVE' THEN -1
+            WHEN x.student_id IS NOT NULL THEN 0
             WHEN t.status='REVIEW_PENDING' THEN 9
             WHEN t.status='APPROVED' THEN 8
             WHEN t.status='QUIZ_PASSED' THEN 7
@@ -144,20 +149,19 @@ export async function GET(request: Request) {
       db
         .prepare(
           `SELECT DISTINCT s.grade_level,s.room FROM students s JOIN student_survey_responses r ON r.student_id=s.id
-        LEFT JOIN student_device_handovers h ON h.student_id=s.id
-        WHERE s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND COALESCE(r.approval_status,'PENDING')!='REJECTED' AND (h.status IS NULL OR h.status!='ACTIVE')
+        WHERE s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
         ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`,
         )
         .all(),
       db
         .prepare(
-          `SELECT COUNT(*) AS eligible,
-          SUM(CASE WHEN x.student_id IS NULL THEN 1 ELSE 0 END) AS assigned,
-          SUM(CASE WHEN x.student_id IS NOT NULL THEN 1 ELSE 0 END) AS exempted,
-          SUM(CASE WHEN t.status='REVIEW_PENDING' THEN 1 ELSE 0 END) AS review_pending,
-          SUM(CASE WHEN t.status='APPROVED' THEN 1 ELSE 0 END) AS approved,
-          SUM(CASE WHEN t.status='QUIZ_FAILED' THEN 1 ELSE 0 END) AS quiz_failed
-        ${from} WHERE s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND COALESCE(r.approval_status,'PENDING')!='REJECTED' AND (h.status IS NULL OR h.status!='ACTIVE')`,
+          `SELECT SUM(CASE WHEN h.status IS NULL OR h.status!='ACTIVE' THEN 1 ELSE 0 END) AS eligible,
+          SUM(CASE WHEN (h.status IS NULL OR h.status!='ACTIVE') AND x.student_id IS NULL THEN 1 ELSE 0 END) AS assigned,
+          SUM(CASE WHEN (h.status IS NULL OR h.status!='ACTIVE') AND x.student_id IS NOT NULL THEN 1 ELSE 0 END) AS exempted,
+          SUM(CASE WHEN (h.status IS NULL OR h.status!='ACTIVE') AND t.status='REVIEW_PENDING' THEN 1 ELSE 0 END) AS review_pending,
+          SUM(CASE WHEN (h.status IS NULL OR h.status!='ACTIVE') AND t.status='APPROVED' THEN 1 ELSE 0 END) AS approved,
+          SUM(CASE WHEN (h.status IS NULL OR h.status!='ACTIVE') AND t.status='QUIZ_FAILED' THEN 1 ELSE 0 END) AS quiz_failed
+        ${from} WHERE s.is_active=1 AND r.public_locked=1 AND r.decision='ACCEPT' AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`,
         )
         .first(),
     ]);
