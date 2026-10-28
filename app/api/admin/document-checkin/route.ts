@@ -82,7 +82,6 @@ const eligibleClauses = [
   "r.public_locked=1",
   "r.decision='ACCEPT'",
   "COALESCE(r.approval_status,'PENDING')!='REJECTED'",
-  "(EXISTS (SELECT 1 FROM guardian_training_exemptions gx WHERE gx.student_id=s.id) OR EXISTS (SELECT 1 FROM guardian_training_assignments gt WHERE gt.student_id=s.id AND gt.status='APPROVED'))",
 ];
 
 export async function GET(request: Request) {
@@ -121,9 +120,6 @@ export async function GET(request: Request) {
       const accepted =
         student.public_locked === 1 && student.decision === "ACCEPT";
       const rejected = student.approval_status === "REJECTED";
-      const trainingReady =
-        Boolean(student.training_exempt) ||
-        student.training_status === "APPROVED";
       const hasActiveHandover = student.handover_status === "ACTIVE";
       const hasSavedRegistration = Boolean(
         student.pii_ciphertext &&
@@ -139,14 +135,12 @@ export async function GET(request: Request) {
           ...student,
           pii_ciphertext: undefined,
           pii_iv: undefined,
-          eligible: accepted && !rejected && trainingReady,
+          eligible: accepted && !rejected,
           eligibilityReason: !accepted
             ? "นักเรียนยังไม่ได้ลงทะเบียนเลือกรับ iPad"
             : rejected
               ? "รายการรับ iPad ของนักเรียนไม่ได้รับอนุมัติ"
-              : !trainingReady
-                ? "ผู้ปกครองยังไม่ผ่านการอบรมออนไลน์และการตรวจสอบ"
-                : null,
+              : null,
           withdrawEligible: accepted && !rejected && !hasActiveHandover,
           withdrawReason: !accepted
             ? "นักเรียนไม่ได้อยู่ในสถานะเลือกรับ iPad"
