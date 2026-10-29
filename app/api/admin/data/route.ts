@@ -39,8 +39,12 @@ export async function GET(request: Request) {
         FROM students s LEFT JOIN student_survey_responses r ON r.student_id=s.id
         WHERE s.is_active=1 GROUP BY s.grade_level,s.room
         ORDER BY s.grade_level,CAST(s.room AS INTEGER),s.room`).all();
-      const teacherAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM survey_responses r JOIN teachers t ON t.id=r.teacher_id WHERE t.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1`).first<{ count: number }>();
-      const studentAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM student_survey_responses r JOIN students s ON s.id=r.student_id WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1 AND COALESCE(r.approval_status,'PENDING')!='REJECTED'`).first<{ count: number }>();
+      const teacherAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM survey_responses r JOIN teachers t ON t.id=r.teacher_id
+        WHERE t.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
+          AND NOT EXISTS (SELECT 1 FROM teacher_device_handovers h WHERE h.teacher_id=t.id AND h.status='RETURNED')`).first<{ count: number }>();
+      const studentAssigned = await db.prepare(`SELECT COUNT(*) AS count FROM student_survey_responses r JOIN students s ON s.id=r.student_id
+        WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1 AND COALESCE(r.approval_status,'PENDING')!='REJECTED'
+          AND NOT EXISTS (SELECT 1 FROM student_device_handovers h WHERE h.student_id=s.id AND h.status='RETURNED')`).first<{ count: number }>();
       const settings = await getSettings(db);
       return json({ totals, teacherTotals, studentTotals, teacherAssigned: teacherAssigned?.count ?? 0, studentAssigned: studentAssigned?.count ?? 0, areas: areas.results ?? [], studentGrades: studentGrades.results ?? [], studentRooms: studentRooms.results ?? [], settings });
     }

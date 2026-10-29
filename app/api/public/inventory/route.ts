@@ -14,17 +14,23 @@ export async function GET() {
     const settings = await getSettings(db);
     const totals = await db.prepare(`SELECT
       (SELECT COUNT(*) FROM survey_responses r JOIN teachers t ON t.id=r.teacher_id
-        WHERE t.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1) AS teacher_assigned,
+        WHERE t.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
+          AND NOT EXISTS (SELECT 1 FROM teacher_device_handovers h
+            WHERE h.teacher_id=t.id AND h.status='RETURNED')) AS teacher_assigned,
       (SELECT COUNT(*) FROM student_survey_responses r JOIN students s ON s.id=r.student_id
         WHERE s.is_active=1 AND r.decision='ACCEPT' AND r.public_locked=1
-          AND r.approval_status!='REJECTED') AS student_assigned,
+          AND r.approval_status!='REJECTED'
+          AND NOT EXISTS (SELECT 1 FROM student_device_handovers h
+            WHERE h.student_id=s.id AND h.status='RETURNED')) AS student_assigned,
       (SELECT COUNT(*) FROM students
         WHERE is_active=1 AND grade_level IN ('มัธยมศึกษาปีที่ 4','มัธยมศึกษาปีที่ 5','มัธยมศึกษาปีที่ 6')) AS upper_total,
       (SELECT COUNT(*) FROM student_survey_responses r JOIN students s ON s.id=r.student_id
         WHERE s.is_active=1
           AND s.grade_level IN ('มัธยมศึกษาปีที่ 4','มัธยมศึกษาปีที่ 5','มัธยมศึกษาปีที่ 6')
           AND r.decision='ACCEPT' AND r.public_locked=1
-          AND r.approval_status!='REJECTED') AS upper_assigned`)
+          AND r.approval_status!='REJECTED'
+          AND NOT EXISTS (SELECT 1 FROM student_device_handovers h
+            WHERE h.student_id=s.id AND h.status='RETURNED')) AS upper_assigned`)
       .first<{ teacher_assigned: number; student_assigned: number; upper_total: number; upper_assigned: number }>();
 
     const teacherCapacity = quota(settings.teacher_ipad_quota, 127);
