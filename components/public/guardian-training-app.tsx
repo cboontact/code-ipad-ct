@@ -282,7 +282,8 @@ export function GuardianTrainingApp() {
   }
   async function upload(file?: File) {
     if (!file || !session) return;
-    if (!consent) {
+    const isResubmission = session.status === "REJECTED";
+    if (!consent && !isResubmission) {
       toast.warning("กรุณาอ่านและยอมรับ PDPA ก่อนอัปโหลดภาพ");
       return;
     }
@@ -323,7 +324,8 @@ export function GuardianTrainingApp() {
     }
   }
   async function submitIdentity() {
-    if (!session || !relationship || !consent || !session.hasSelfie) {
+    const isResubmission = session?.status === "REJECTED";
+    if (!session || !relationship || (!consent && !isResubmission) || !session.hasSelfie) {
       toast.warning("กรุณากรอกข้อมูล ถ่ายภาพ และยอมรับเงื่อนไขให้ครบ");
       return;
     }
@@ -439,6 +441,7 @@ export function GuardianTrainingApp() {
     : 0;
   const identityStage =
     session.status === "QUIZ_PASSED" || session.status === "REJECTED";
+  const isIdentityResubmission = session.status === "REJECTED";
   const currentStep = ["ASSIGNED", "IN_PROGRESS"].includes(session.status)
     ? 1
     : ["VIDEO_COMPLETED", "QUIZ_FAILED"].includes(session.status)
@@ -662,52 +665,56 @@ export function GuardianTrainingApp() {
               <b>{session.guardianPhone}</b>
             </span>
           </div>
-          <label className="field">
-            <span>ความสัมพันธ์กับนักเรียน</span>
-            <select
-              value={relationship}
-              onChange={(event) => setRelationship(event.target.value)}
-            >
-              <option value="">เลือกความสัมพันธ์</option>
-              <option>บิดา</option>
-              <option>มารดา</option>
-              <option>ผู้ปกครอง</option>
-              <option>ญาติ</option>
-            </select>
-          </label>
-          <div className="training-pdpa-notice">
-            <h3>
-              <FontAwesomeIcon icon={faShieldHalved} />
-              หนังสือแจ้งการคุ้มครองข้อมูลส่วนบุคคล (PDPA)
-            </h3>
-            <p>
-              โรงเรียนจอมทองเก็บชื่อ เบอร์โทรศัพท์ ความสัมพันธ์ ผลการอบรม
-              และภาพยืนยันตัวตน เพื่อยืนยันผู้เข้าอบรม ตรวจสอบสิทธิ์
-              และดำเนินโครงการยืม iPad เท่านั้น
-              ข้อมูลจะเปิดให้เฉพาะเจ้าหน้าที่ที่ได้รับมอบหมาย
-              เก็บรักษาตามระยะเวลาที่จำเป็นของโครงการ
-              และไม่เปิดเผยแก่บุคคลภายนอกเว้นแต่กฎหมายกำหนด
-            </p>
-            <p>
-              เจ้าของข้อมูลสามารถขอเข้าถึง แก้ไข
-              หรือถอนความยินยอมได้โดยติดต่อโรงเรียน
-              ทั้งนี้การถอนความยินยอมอาจทำให้ไม่สามารถตรวจสอบการอบรมผ่านระบบออนไลน์ได้
-            </p>
-          </div>
-          <label className="privacy-note student-privacy">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(event) => setConsent(event.target.checked)}
-            />
-            <FontAwesomeIcon icon={faShieldHalved} />
-            <span>
-              ข้าพเจ้าได้อ่านและรับทราบรายละเอียด PDPA ข้างต้น
-              และยินยอมให้โรงเรียนเก็บ ใช้
-              และประมวลผลข้อมูลส่วนบุคคลและภาพยืนยันตัวตน
-              เพื่อการอบรมและการดำเนินโครงการยืม iPad
-            </span>
-          </label>
+          {!isIdentityResubmission && (
+            <>
+              <label className="field">
+                <span>ความสัมพันธ์กับนักเรียน</span>
+                <select
+                  value={relationship}
+                  onChange={(event) => setRelationship(event.target.value)}
+                >
+                  <option value="">เลือกความสัมพันธ์</option>
+                  <option>บิดา</option>
+                  <option>มารดา</option>
+                  <option>ผู้ปกครอง</option>
+                  <option>ญาติ</option>
+                </select>
+              </label>
+              <div className="training-pdpa-notice">
+                <h3>
+                  <FontAwesomeIcon icon={faShieldHalved} />
+                  หนังสือแจ้งการคุ้มครองข้อมูลส่วนบุคคล (PDPA)
+                </h3>
+                <p>
+                  โรงเรียนจอมทองเก็บชื่อ เบอร์โทรศัพท์ ความสัมพันธ์ ผลการอบรม
+                  และภาพยืนยันตัวตน เพื่อยืนยันผู้เข้าอบรม ตรวจสอบสิทธิ์
+                  และดำเนินโครงการยืม iPad เท่านั้น
+                  ข้อมูลจะเปิดให้เฉพาะเจ้าหน้าที่ที่ได้รับมอบหมาย
+                  เก็บรักษาตามระยะเวลาที่จำเป็นของโครงการ
+                  และไม่เปิดเผยแก่บุคคลภายนอกเว้นแต่กฎหมายกำหนด
+                </p>
+                <p>
+                  เจ้าของข้อมูลสามารถขอเข้าถึง แก้ไข
+                  หรือถอนความยินยอมได้โดยติดต่อโรงเรียน
+                  ทั้งนี้การถอนความยินยอมอาจทำให้ไม่สามารถตรวจสอบการอบรมผ่านระบบออนไลน์ได้
+                </p>
+              </div>
+              <label className="privacy-note student-privacy">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(event) => setConsent(event.target.checked)}
+                />
+                <FontAwesomeIcon icon={faShieldHalved} />
+                <span>
+                  ข้าพเจ้าได้อ่านและรับทราบรายละเอียด PDPA ข้างต้น
+                  และยินยอมให้โรงเรียนเก็บ ใช้
+                  และประมวลผลข้อมูลส่วนบุคคลและภาพยืนยันตัวตน
+                  เพื่อการอบรมและการดำเนินโครงการยืม iPad
+                </span>
+              </label>
+            </>
+          )}
           <div className="training-selfie-box">
             {preview ? (
               <img src={preview} alt="ภาพยืนยันตัวตนผู้ปกครอง" />
@@ -722,7 +729,7 @@ export function GuardianTrainingApp() {
                 <span>กรุณาถ่ายภาพใบหน้าปัจจุบันให้เห็นชัดเจน</span>
               </div>
             )}
-            <label className={`button secondary${consent ? "" : " disabled"}`}>
+            <label className={`button secondary${consent || isIdentityResubmission ? "" : " disabled"}`}>
               <FontAwesomeIcon icon={faUpload} />
               {session.hasSelfie
                 ? "ถ่ายหรือเลือกรูปใหม่"
@@ -730,13 +737,13 @@ export function GuardianTrainingApp() {
               <input
                 type="file"
                 hidden
-                disabled={!consent}
+                disabled={!consent && !isIdentityResubmission}
                 accept="image/*,.heic,.heif,.avif,.dng,.raw,.gif,.bmp,.tif,.tiff,.jfif"
                 capture="user"
                 onChange={(event) => void upload(event.target.files?.[0])}
               />
             </label>
-            {!consent && <small>กรุณายอมรับ PDPA ก่อนถ่ายหรืออัปโหลดภาพ</small>}
+            {!consent && !isIdentityResubmission && <small>กรุณายอมรับ PDPA ก่อนถ่ายหรืออัปโหลดภาพ</small>}
           </div>
           <button
             className="button primary training-submit-button"
