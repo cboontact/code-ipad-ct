@@ -105,7 +105,8 @@ export function GuardianTrainingApp() {
     [showAnswerErrors, setShowAnswerErrors] = useState(false),
     [relationship, setRelationship] = useState(""),
     [consent, setConsent] = useState(false),
-    [preview, setPreview] = useState("");
+    [preview, setPreview] = useState(""),
+    [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const playerRef = useRef<YTPlayer | null>(null),
     sessionRef = useRef<TrainingSession | null>(null),
     progressBusy = useRef(false);
@@ -293,23 +294,36 @@ export function GuardianTrainingApp() {
       return;
     }
     setBusy(true);
+    setUploadProgress(0);
     const url = URL.createObjectURL(file);
     setPreview(url);
     try {
-      const response = await fetch("/api/public/training/selfie", {
-        method: "POST",
-        headers: {
-          "Content-Type": file.type || "image/unknown",
-          "X-Training-Token": encodeURIComponent(session.token),
-          "X-PDPA-Consent": "true",
-          "X-Upload-Filename": encodeURIComponent(file.name),
-        },
-        body: file,
+      const result = await new Promise<{ status: number; data: { success?: boolean; error?: string } }>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", "/api/public/training/selfie");
+        request.setRequestHeader("Content-Type", file.type || "image/unknown");
+        request.setRequestHeader("X-Training-Token", encodeURIComponent(session.token));
+        request.setRequestHeader("X-PDPA-Consent", "true");
+        request.setRequestHeader("X-Upload-Filename", encodeURIComponent(file.name));
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable)
+            setUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        };
+        request.onerror = () => reject(new Error("เชื่อมต่อระบบอัปโหลดไม่สำเร็จ"));
+        request.onload = () => {
+          let data: { success?: boolean; error?: string } = {};
+          try {
+            data = JSON.parse(request.responseText || "{}") as typeof data;
+          } catch {
+            data = { error: "ระบบตอบกลับข้อมูลไม่ถูกต้อง" };
+          }
+          resolve({ status: request.status, data });
+        };
+        request.send(file);
       });
-      const data = await readJson<{ success?: boolean; error?: string }>(
-        response,
-      );
-      if (!response.ok) throw new Error(data.error);
+      if (result.status < 200 || result.status >= 300)
+        throw new Error(result.data.error || "อัปโหลดภาพไม่สำเร็จ");
+      setUploadProgress(100);
       setSession((current) =>
         current ? { ...current, hasSelfie: true } : current,
       );
@@ -321,6 +335,7 @@ export function GuardianTrainingApp() {
       );
     } finally {
       setBusy(false);
+      window.setTimeout(() => setUploadProgress(null), 700);
     }
   }
   async function submitIdentity() {
@@ -729,7 +744,7 @@ export function GuardianTrainingApp() {
                 <span>กรุณาถ่ายภาพใบหน้าปัจจุบันให้เห็นชัดเจน</span>
               </div>
             )}
-            <label className={`button secondary${consent || isIdentityResubmission ? "" : " disabled"}`}>
+            <label className={`button secondary${consent || isIdentityResubmission ? "" : " disabled"}${busy ? " disabled" : ""}`}>
               <FontAwesomeIcon icon={faUpload} />
               {session.hasSelfie
                 ? "ถ่ายหรือเลือกรูปใหม่"
@@ -737,13 +752,19 @@ export function GuardianTrainingApp() {
               <input
                 type="file"
                 hidden
-                disabled={!consent && !isIdentityResubmission}
+                disabled={busy || (!consent && !isIdentityResubmission)}
                 accept="image/*,.heic,.heif,.avif,.dng,.raw,.gif,.bmp,.tif,.tiff,.jfif"
                 capture="user"
                 onChange={(event) => void upload(event.target.files?.[0])}
               />
             </label>
             {!consent && !isIdentityResubmission && <small>กรุณายอมรับ PDPA ก่อนถ่ายหรืออัปโหลดภาพ</small>}
+            {uploadProgress !== null && (
+              <div className="training-upload-progress" role="status" aria-live="polite">
+                <div><i style={{ width: `${uploadProgress}%` }} /></div>
+                <span>{uploadProgress < 100 ? `กำลังอัปโหลด ${uploadProgress}%` : "อัปโหลดเสร็จแล้ว"}</span>
+              </div>
+            )}
           </div>
           <button
             className="button primary training-submit-button"
