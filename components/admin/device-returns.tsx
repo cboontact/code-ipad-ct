@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRotateLeft,
   faBoxArchive,
+  faChevronLeft,
+  faChevronRight,
   faCircleCheck,
   faClockRotateLeft,
   faMagnifyingGlass,
@@ -21,6 +23,8 @@ import { readJson } from "@/lib/client-json";
 type Row = Record<string, unknown>;
 type Audience = "" | "TEACHER" | "STUDENT";
 type ReturnTab = "ACTIVE" | "HISTORY";
+type PageSize = 20 | 30 | 40 | 50 | 100;
+const PAGE_SIZES: PageSize[] = [20, 30, 40, 50, 100];
 const text = (value: unknown) => value == null ? "" : String(value);
 const conditionLabels: Record<string, string> = {
   GOOD: "สภาพปกติ",
@@ -54,6 +58,8 @@ export function DeviceReturns() {
   const [search, setSearch] = useState("");
   const [audience, setAudience] = useState<Audience>("");
   const [tab, setTab] = useState<ReturnTab>("ACTIVE");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(20);
   const [selected, setSelected] = useState<Row | null>(null);
 
   async function load() {
@@ -98,6 +104,12 @@ export function DeviceReturns() {
   };
   const filteredActive = active.filter(matches);
   const filteredHistory = history.filter(matches);
+  const currentRows = tab === "ACTIVE" ? filteredActive : filteredHistory;
+  const totalPages = Math.max(1, Math.ceil(currentRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pagedActive = filteredActive.slice(pageStart, pageStart + pageSize);
+  const pagedHistory = filteredHistory.slice(pageStart, pageStart + pageSize);
   const teacherActive = active.filter((row) => text(row.holder_type) === "TEACHER").length;
   const studentActive = active.filter((row) => text(row.holder_type) === "STUDENT").length;
 
@@ -156,12 +168,12 @@ export function DeviceReturns() {
 
       <section className="admin-panel device-return-panel device-return-tab-panel">
         <div className="device-return-tabs" role="tablist" aria-label="ข้อมูลการคืน iPad">
-          <button type="button" role="tab" aria-selected={tab === "ACTIVE"} className={tab === "ACTIVE" ? "active" : ""} onClick={() => setTab("ACTIVE")}>
+          <button type="button" role="tab" aria-selected={tab === "ACTIVE"} className={tab === "ACTIVE" ? "active" : ""} onClick={() => { setTab("ACTIVE"); setPage(1); }}>
             <FontAwesomeIcon icon={faTabletScreenButton} />
             <span>เครื่องที่จัดสรรอยู่</span>
             <b>{active.length.toLocaleString("th-TH")}</b>
           </button>
-          <button type="button" role="tab" aria-selected={tab === "HISTORY"} className={tab === "HISTORY" ? "active" : ""} onClick={() => setTab("HISTORY")}>
+          <button type="button" role="tab" aria-selected={tab === "HISTORY"} className={tab === "HISTORY" ? "active" : ""} onClick={() => { setTab("HISTORY"); setPage(1); }}>
             <FontAwesomeIcon icon={faBoxArchive} />
             <span>ประวัติการคืน</span>
             <b>{history.length.toLocaleString("th-TH")}</b>
@@ -171,23 +183,23 @@ export function DeviceReturns() {
         <div className="device-return-heading">
           <div><h2><FontAwesomeIcon icon={faTabletScreenButton} /> เครื่องที่จัดสรรอยู่</h2><p>ค้นหาผู้ถือเครื่องหรือ Serial Number แล้วบันทึกรับคืน</p></div>
           <div className="device-return-filters">
-            <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ค้นหาชื่อ รหัส หรือ Serial Number..." /></label>
-            <select className="admin-input" value={audience} onChange={(event) => setAudience(event.target.value as Audience)} aria-label="กรองประเภทผู้ถือเครื่อง">
+            <label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ค้นหาชื่อ รหัส หรือ Serial Number..." /></label>
+            <select className="admin-input" value={audience} onChange={(event) => { setAudience(event.target.value as Audience); setPage(1); }} aria-label="กรองประเภทผู้ถือเครื่อง">
               <option value="">ทุกประเภท</option><option value="TEACHER">ครูและบุคลากร</option><option value="STUDENT">นักเรียน</option>
             </select>
           </div>
         </div>
         {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin /> กำลังโหลดข้อมูล...</div> : filteredActive.length ? (
           <div className="admin-table-wrap"><table className="admin-table device-return-table"><thead><tr><th>ผู้ถือเครื่อง</th><th>ประเภท</th><th>กลุ่ม / ชั้นเรียน</th><th>Serial Number</th><th>สถานะการรับ</th><th>วันที่จัดสรร</th><th>จัดการ</th></tr></thead><tbody>
-            {filteredActive.map((row) => <tr key={text(row.assignment_id)}><td><b>{text(row.holder_name)}</b><small>{text(row.holder_code) || "ไม่ระบุรหัส"}</small></td><td><HolderType value={text(row.holder_type)} /></td><td>{text(row.holder_context) || "—"}</td><td><code>{text(row.serial_number) || "ยังไม่ระบุ"}</code></td><td><PickupStatus value={text(row.pickup_status)} holderType={text(row.holder_type)}/>{text(row.holder_type) === "STUDENT" && <small>{recipientLabel(row)}</small>}</td><td>{formatDate(row.assigned_at)}</td><td><button className="button return-device-button" type="button" onClick={() => setSelected(row)}><FontAwesomeIcon icon={faArrowRotateLeft} /> รับคืน</button></td></tr>)}
-          </tbody></table></div>
+            {pagedActive.map((row) => <tr key={text(row.assignment_id)}><td><b>{text(row.holder_name)}</b><small>{text(row.holder_code) || "ไม่ระบุรหัส"}</small></td><td><HolderType value={text(row.holder_type)} /></td><td>{text(row.holder_context) || "—"}</td><td><code>{text(row.serial_number) || "ยังไม่ระบุ"}</code></td><td><PickupStatus value={text(row.pickup_status)} holderType={text(row.holder_type)}/>{text(row.holder_type) === "STUDENT" && <small>{recipientLabel(row)}</small>}</td><td>{formatDate(row.assigned_at)}</td><td><button className="button return-device-button" type="button" onClick={() => setSelected(row)}><FontAwesomeIcon icon={faArrowRotateLeft} /> รับคืน</button></td></tr>)}
+          </tbody></table><ReturnPagination page={currentPage} pageSize={pageSize} total={filteredActive.length} setPage={setPage} setPageSize={(value) => { setPageSize(value); setPage(1); }} /></div>
         ) : <div className="device-return-empty"><FontAwesomeIcon icon={faCircleCheck} /><h3>ไม่พบเครื่องที่รอรับคืน</h3><p>{search || audience ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "ยังไม่มีรายการจัดสรรอุปกรณ์ปัจจุบัน"}</p></div>}
         </> : <>
-        <div className="device-return-heading"><div><h2><FontAwesomeIcon icon={faBoxArchive} /> ประวัติการคืนย้อนหลัง</h2><p>เก็บข้อมูลผู้คืน เครื่อง สภาพ และผู้ดำเนินการไว้ตรวจสอบย้อนหลัง</p></div><div className="device-return-filters"><label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ค้นหาชื่อ รหัส หรือ Serial Number..." /></label><select className="admin-input" value={audience} onChange={(event) => setAudience(event.target.value as Audience)} aria-label="กรองประเภทผู้คืน"><option value="">ทุกประเภท</option><option value="TEACHER">ครูและบุคลากร</option><option value="STUDENT">นักเรียน</option></select></div></div>
+        <div className="device-return-heading"><div><h2><FontAwesomeIcon icon={faBoxArchive} /> ประวัติการคืนย้อนหลัง</h2><p>เก็บข้อมูลผู้คืน เครื่อง สภาพ และผู้ดำเนินการไว้ตรวจสอบย้อนหลัง</p></div><div className="device-return-filters"><label className="search-box admin-search"><FontAwesomeIcon icon={faMagnifyingGlass} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="ค้นหาชื่อ รหัส หรือ Serial Number..." /></label><select className="admin-input" value={audience} onChange={(event) => { setAudience(event.target.value as Audience); setPage(1); }} aria-label="กรองประเภทผู้คืน"><option value="">ทุกประเภท</option><option value="TEACHER">ครูและบุคลากร</option><option value="STUDENT">นักเรียน</option></select></div></div>
         {loading ? <div className="loading-row"><FontAwesomeIcon icon={faSpinner} spin /> กำลังโหลดประวัติ...</div> : filteredHistory.length ? (
           <div className="admin-table-wrap"><table className="admin-table return-history-table"><thead><tr><th>วันที่คืน</th><th>ผู้คืน</th><th>Serial Number</th><th>สภาพเครื่อง</th><th>หมายเหตุ</th><th>ผู้รับคืน</th></tr></thead><tbody>
-            {filteredHistory.map((row) => <tr key={text(row.id)}><td><b>{formatDate(row.returned_at)}</b></td><td><b>{text(row.holder_name)}</b><small><HolderType value={text(row.holder_type)} compact /> · {text(row.holder_context) || text(row.holder_code) || "—"}</small></td><td><code>{text(row.serial_number) || "ไม่ระบุ"}</code></td><td><Condition value={text(row.device_condition)} /></td><td>{text(row.return_note) || "—"}</td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td></tr>)}
-          </tbody></table></div>
+            {pagedHistory.map((row) => <tr key={text(row.id)}><td><b>{formatDate(row.returned_at)}</b></td><td><b>{text(row.holder_name)}</b><small><HolderType value={text(row.holder_type)} compact /> · {text(row.holder_context) || text(row.holder_code) || "—"}</small></td><td><code>{text(row.serial_number) || "ไม่ระบุ"}</code></td><td><Condition value={text(row.device_condition)} /></td><td>{text(row.return_note) || "—"}</td><td>{text(row.processed_by_name) || "ผู้ดูแลระบบ"}</td></tr>)}
+          </tbody></table><ReturnPagination page={currentPage} pageSize={pageSize} total={filteredHistory.length} setPage={setPage} setPageSize={(value) => { setPageSize(value); setPage(1); }} /></div>
         ) : <div className="device-return-empty history-empty"><FontAwesomeIcon icon={faClockRotateLeft} /><h3>ยังไม่มีประวัติการคืน</h3><p>เมื่อรับคืนเครื่อง รายการจะถูกเก็บไว้ที่นี่โดยอัตโนมัติ</p></div>}
         </>}
       </section>
@@ -205,6 +217,21 @@ export function DeviceReturns() {
       </section></div>}
     </>
   );
+}
+
+function ReturnPagination({ page, pageSize, total, setPage, setPageSize }: { page: number; pageSize: PageSize; total: number; setPage: (value: number) => void; setPageSize: (value: PageSize) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const first = total ? (page - 1) * pageSize + 1 : 0;
+  const last = Math.min(page * pageSize, total);
+  return <nav className="table-pagination return-pagination" aria-label="เปลี่ยนหน้ารายการเครื่อง">
+    <span>แสดง {first.toLocaleString("th-TH")}-{last.toLocaleString("th-TH")} จาก {total.toLocaleString("th-TH")} รายการ</span>
+    <div>
+      <label className="pagination-page-size">แสดงต่อหน้า <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as PageSize)} aria-label="จำนวนรายการต่อหน้า">{PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+      <button type="button" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))} aria-label="หน้าก่อนหน้า"><FontAwesomeIcon icon={faChevronLeft}/></button>
+      <b>หน้า {page.toLocaleString("th-TH")} / {pages.toLocaleString("th-TH")}</b>
+      <button type="button" disabled={page >= pages} onClick={() => setPage(Math.min(pages, page + 1))} aria-label="หน้าถัดไป"><FontAwesomeIcon icon={faChevronRight}/></button>
+    </div>
+  </nav>;
 }
 
 function HolderType({ value, compact = false }: { value: string; compact?: boolean }) {
